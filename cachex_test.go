@@ -34,7 +34,7 @@ func make_error_handler(key interface{}) (value interface{}, err error) {
 }
 
 func TestCachex_Get(t *testing.T) {
-	c := NewCachex(Config{
+	c := NewCachex(&Config{
 		Maker: make_square_handler,
 	})
 
@@ -47,7 +47,7 @@ func TestCachex_Get(t *testing.T) {
 }
 
 func TestCachex_Get_Error(t *testing.T) {
-	c := NewCachex(Config{
+	c := NewCachex(&Config{
 		Maker: make_error_handler,
 	})
 
@@ -58,7 +58,7 @@ func TestCachex_Get_Error(t *testing.T) {
 }
 
 func TestCachex_Get_Concurrency(t *testing.T) {
-	c := NewCachex(Config{
+	c := NewCachex(&Config{
 		Maker: make_random_handler,
 	})
 

@@ -33,7 +33,7 @@ type Cachex struct {
 	NotFound error
 }
 
-func NewCachex(cfg Config) (c *Cachex) {
+func NewCachex(cfg *Config) (c *Cachex) {
 	c = &Cachex{
 		storage: &LRUCache{
 			MaxEntries: cfg.MaxEntries,
