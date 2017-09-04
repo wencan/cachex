@@ -9,22 +9,16 @@ import (
 )
 
 type MakerFunc func(key interface{}) (value interface{}, err error)
-type DeleterFunc func(key interface{}, value interface{})
 
 var ErrorNotFound error = errors.New("not found")
 
-type Config struct {
-	MaxEntries int
-	TTLSeconds int
-
-	Maker MakerFunc
-	Deleter DeleterFunc
-
-	NotFound error
+type Storage interface {
+	Get(key interface{}) (value interface{}, ok bool, err error)
+	Set(key, value interface{}) (err error)
 }
 
 type Cachex struct {
-	storage   *LRUCache
+	storage   Storage
 
 	maker     MakerFunc
 
@@ -33,15 +27,10 @@ type Cachex struct {
 	NotFound error
 }
 
-func NewCachex(cfg *Config) (c *Cachex) {
+func NewCachex(storage Storage, maker MakerFunc) (c *Cachex) {
 	c = &Cachex{
-		storage: &LRUCache{
-			MaxEntries: cfg.MaxEntries,
-			TTLSeconds: cfg.TTLSeconds,
-			Mapping: NewListMap(),
-			Deleter: cfg.Deleter,
-		},
-		maker: cfg.Maker,
+		storage: storage,
+		maker: maker,
 	}
 
 	return c
@@ -54,8 +43,10 @@ func (c *Cachex) Get(key interface{}) (value interface{}, err error) {
 		return sentinel.Wait()
 	}
 
-	value, ok = c.storage.Get(key)
-	if ok {
+	value, ok, err = c.storage.Get(key)
+	if err != nil {
+		return nil, err
+	}else if ok {
 		return value, nil
 	}
 
@@ -83,24 +74,16 @@ func (c *Cachex) Get(key interface{}) (value interface{}, err error) {
 
 		sentinel.Done(value, nil)
 
-		c.Set(key, value)
+		err := c.storage.Set(key, value)
 
 		c.sentinels.Delete(key)
 
-		return value, nil
+		return value, err
 	} else {
 		return sentinel.Wait()
 	}
 }
 
-func (c *Cachex) Set(key interface{}, value interface{}) {
-	c.storage.Set(key, value)
-}
-
-func (c *Cachex) Remove(key interface{}) {
-	c.storage.Remove(key)
-}
-
-func (c *Cachex) Clear() {
-	c.storage.Clear()
+func (c *Cachex) Set(key, value interface{}) (err error) {
+	return c.storage.Set(key, value)
 }

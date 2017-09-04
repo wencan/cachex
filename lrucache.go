@@ -14,16 +14,14 @@ type cacheEntry struct {
 
 type LRUCache struct {
 	MaxEntries int
-	TTLSeconds int //seconds
+	TTLSeconds int
 
 	Mapping    *ListMap
 
 	lock       AtomicMutex
-
-	Deleter    func(key interface{}, value interface{})
 }
 
-func NewCache(maxEntries int, TTLSeconds int) *LRUCache {
+func NewLRUCache(maxEntries int, TTLSeconds int) *LRUCache {
 	return &LRUCache{
 		MaxEntries: maxEntries,
 		TTLSeconds: TTLSeconds,
@@ -31,7 +29,7 @@ func NewCache(maxEntries int, TTLSeconds int) *LRUCache {
 	}
 }
 
-func (c *LRUCache) Set(key interface{}, value interface{}) {
+func (c *LRUCache) Set(key, value interface{}) (err error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
@@ -56,9 +54,11 @@ func (c *LRUCache) Set(key interface{}, value interface{}) {
 			c.Mapping.PopBack()
 		}
 	}
+
+	return nil
 }
 
-func (c *LRUCache) Get(key interface{}) (value interface{}, ok bool) {
+func (c *LRUCache) Get(key interface{}) (value interface{}, ok bool, err error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
@@ -67,15 +67,15 @@ func (c *LRUCache) Get(key interface{}) (value interface{}, ok bool) {
 		entry := item.(*cacheEntry)
 		if c.TTLSeconds != 0 {
 			if int(time.Now().Unix() - entry.created) >= c.TTLSeconds {
-				return nil, false
+				return nil, false, nil
 			}
 		}
 
 		c.Mapping.MoveToFront(key)
-		return entry.value, true
+		return entry.value, true, nil
 	}
 
-	return nil, false
+	return nil, false, nil
 }
 
 func (c *LRUCache) Remove(key interface{}) {
@@ -83,13 +83,6 @@ func (c *LRUCache) Remove(key interface{}) {
 	defer c.lock.Unlock()
 
 	c.Mapping.Pop(key)
-}
-
-func (c *LRUCache) RemoveOldest() {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-
-	c.Mapping.PopBack()
 }
 
 func (c *LRUCache) Len() int {
