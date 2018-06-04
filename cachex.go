@@ -15,12 +15,13 @@ var ErrorNotFound error = errors.New("not found")
 type Storage interface {
 	Get(key interface{}) (value interface{}, ok bool, err error)
 	Set(key, value interface{}) (err error)
+	Del(key interface{}) (err error)
 }
 
 type Cachex struct {
-	storage   Storage
+	storage Storage
 
-	maker     MakerFunc
+	maker MakerFunc
 
 	sentinels sync.Map
 
@@ -30,7 +31,7 @@ type Cachex struct {
 func NewCachex(storage Storage, maker MakerFunc) (c *Cachex) {
 	c = &Cachex{
 		storage: storage,
-		maker: maker,
+		maker:   maker,
 	}
 
 	return c
@@ -46,7 +47,7 @@ func (c *Cachex) Get(key interface{}) (value interface{}, err error) {
 	value, ok, err = c.storage.Get(key)
 	if err != nil {
 		return nil, err
-	}else if ok {
+	} else if ok {
 		return value, nil
 	}
 
@@ -86,4 +87,8 @@ func (c *Cachex) Get(key interface{}) (value interface{}, err error) {
 
 func (c *Cachex) Set(key, value interface{}) (err error) {
 	return c.storage.Set(key, value)
+}
+
+func (c *Cachex) Del(key interface{}) (err error) {
+	return c.storage.Del(key)
 }

@@ -4,11 +4,11 @@ package cachex
 // 2017-09-02 14:06
 
 import (
-	"testing"
-	"time"
 	"errors"
 	"math/rand"
 	"sync"
+	"testing"
+	"time"
 )
 
 var testError error = errors.New("test")
@@ -18,7 +18,7 @@ func make_square_maker(key interface{}) (value interface{}, err error) {
 
 	num := key.(int)
 
-	return num*num, nil
+	return num * num, nil
 }
 
 func make_random_maker(key interface{}) (value interface{}, err error) {
@@ -27,7 +27,7 @@ func make_random_maker(key interface{}) (value interface{}, err error) {
 	num := key.(int)
 
 	rand.Seed(time.Now().Unix())
-	return num+rand.Int(), nil
+	return num + rand.Int(), nil
 }
 
 func make_error_maker(key interface{}) (value interface{}, err error) {
@@ -58,7 +58,7 @@ func TestCachex_Get_Concurrency(t *testing.T) {
 	c := NewCachex(NewLRUCache(1000, 60*5), make_random_maker)
 
 	ch := make(chan int, 100)
-	for i:=0; i<100; i++ {
+	for i := 0; i < 100; i++ {
 		go func() {
 			value, err := c.Get(100)
 			if err != nil {
@@ -70,11 +70,11 @@ func TestCachex_Get_Concurrency(t *testing.T) {
 	}
 
 	var number int
-	for i:=0; i<100; i++ {
-		if i==0 {
-			number = <- ch
+	for i := 0; i < 100; i++ {
+		if i == 0 {
+			number = <-ch
 		} else {
-			value := <- ch
+			value := <-ch
 			if number != value {
 				t.FailNow()
 			}
@@ -82,7 +82,7 @@ func TestCachex_Get_Concurrency(t *testing.T) {
 	}
 }
 
-type testStorage struct{
+type testStorage struct {
 	mapping sync.Map
 }
 
@@ -96,6 +96,11 @@ func (s *testStorage) Set(key, value interface{}) (err error) {
 	return nil
 }
 
+func (s *testStorage) Del(key interface{}) (err error) {
+	s.mapping.Delete(key)
+	return nil
+}
+
 func testStorage_maker(key interface{}) (value interface{}, err error) {
 	num, ok := key.(int)
 	if !ok {
@@ -103,7 +108,7 @@ func testStorage_maker(key interface{}) (value interface{}, err error) {
 	}
 
 	rand.Seed(time.Now().Unix())
-	return num+rand.Int(), nil
+	return num + rand.Int(), nil
 }
 
 func TestCachex_Storage(t *testing.T) {

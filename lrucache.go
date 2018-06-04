@@ -16,16 +16,16 @@ type LRUCache struct {
 	MaxEntries int
 	TTLSeconds int
 
-	Mapping    *ListMap
+	Mapping *ListMap
 
-	lock       AtomicMutex
+	lock AtomicMutex
 }
 
 func NewLRUCache(maxEntries int, TTLSeconds int) *LRUCache {
 	return &LRUCache{
 		MaxEntries: maxEntries,
 		TTLSeconds: TTLSeconds,
-		Mapping: NewListMap(),
+		Mapping:    NewListMap(),
 	}
 }
 
@@ -42,7 +42,7 @@ func (c *LRUCache) Set(key, value interface{}) (err error) {
 		c.Mapping.MoveToFront(key)
 	} else {
 		entry := &cacheEntry{
-			value: value,
+			value:   value,
 			created: time.Now().Unix(),
 		}
 
@@ -66,7 +66,7 @@ func (c *LRUCache) Get(key interface{}) (value interface{}, ok bool, err error) 
 	if ok {
 		entry := item.(*cacheEntry)
 		if c.TTLSeconds != 0 {
-			if int(time.Now().Unix() - entry.created) >= c.TTLSeconds {
+			if int(time.Now().Unix()-entry.created) >= c.TTLSeconds {
 				return nil, false, nil
 			}
 		}
@@ -83,6 +83,11 @@ func (c *LRUCache) Remove(key interface{}) {
 	defer c.lock.Unlock()
 
 	c.Mapping.Pop(key)
+}
+
+func (c *LRUCache) Del(key interface{}) (err error) {
+	c.Remove(key)
+	return nil
 }
 
 func (c *LRUCache) Len() int {
