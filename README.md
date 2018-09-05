@@ -4,7 +4,7 @@ Go业务层缓存，自带内存LRU存储,支持自定义Redis存储实现
 # Example
 ### memory lrucache
 ```go
-func mysql_query(query interface{}) (result interface{}, err error) {
+func mysql_query(query interface{}) (result interface{}, ok bool, err error) {
 	t := reflect.TypeOf(query)
 	if t.Kind() == reflect.Ptr {
 		t = t.Elem()
@@ -13,8 +13,13 @@ func mysql_query(query interface{}) (result interface{}, err error) {
 	result = v.Interface()
 
 	err = db.Where(query).First(result).Error
+	if err == sql.ErrNoRows {
+		return nil, false, nil
+	} else err != nil {
+		return nil, false, err
+	}
 
-	return result, err
+	return result, true, err
 }
 
 func main() {
@@ -34,7 +39,7 @@ func main() {
 ```
 ### redis cache
 ```go
-func mysql_query(query interface{}) (result interface{}, err error) {
+func mysql_query(query interface{}) (result interface{}, ok bool, err error) {
 	t := reflect.TypeOf(query)
 	if t.Kind() == reflect.Ptr {
 		t = t.Elem()
@@ -43,8 +48,13 @@ func mysql_query(query interface{}) (result interface{}, err error) {
 	result = v.Interface()
 
 	err = mydb.Where(query).First(result).Error
+	if err == sql.ErrNoRows {
+		return nil, false, nil
+	} else err != nil {
+		return nil, false, err
+	}
 
-	return result, err
+	return result, true, err
 }
 
 type RedisCache struct {
