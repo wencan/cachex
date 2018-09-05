@@ -4,7 +4,7 @@ Go业务层缓存，自带内存LRU存储,支持自定义Redis存储实现
 # Example
 ### memory lrucache
 ```go
-func mysql_query(query interface{}) (result interface{}, err error) {
+func mysql_query(query interface{}) (result interface{}, ok bool, err error) {
 	t := reflect.TypeOf(query)
 	if t.Kind() == reflect.Ptr {
 		t = t.Elem()
