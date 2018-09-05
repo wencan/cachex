@@ -11,19 +11,26 @@ import (
 func TestCacheMaxEntries(t *testing.T) {
 	cache := NewLRUCache(10, 0)
 
-	for i :=0; i<11; i++ {
-		cache.Set(i, i*i)
+	for i := 0; i < 11; i++ {
+		err := cache.Set(i, i*i)
+		if err != nil {
+			t.Fatal(err)
+		}
 	}
 
-	value, ok, _ := cache.Get(5)
-	if !ok {
+	value, ok, err := cache.Get(5)
+	if err != nil {
+		t.Fatal(err)
+	} else if !ok {
 		t.Fatal("not found value by key:", 5)
 	} else if value != 5*5 {
 		t.Fatal("cached value missmatch")
 	}
 
-	value, ok, _ = cache.Get(0)
-	if ok {
+	value, ok, err = cache.Get(0)
+	if err != nil {
+		t.Fatal(err)
+	} else if ok {
 		t.Fatal("found value by key:", 0)
 	}
 }
@@ -33,10 +40,15 @@ func TestCacheExpire(t *testing.T) {
 
 	key := "test"
 	value := "test"
-	cache.Set(key, value)
+	err := cache.Set(key, value)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	cached, ok, _ := cache.Get(value)
-	if !ok {
+	cached, ok, err := cache.Get(value)
+	if err != nil {
+		t.Fatal(err)
+	} else if !ok {
 		t.Fatal("not found value by key:", key)
 	} else if cached != value {
 		t.Fatal("cached value missmatch")
@@ -44,8 +56,10 @@ func TestCacheExpire(t *testing.T) {
 
 	time.Sleep(time.Second * 2)
 
-	_, ok, _ = cache.Get(value)
-	if ok {
+	_, ok, err = cache.Get(value)
+	if err != nil {
+		t.Fatal(err)
+	} else if ok {
 		t.Fatal("found value by key:", key)
 	}
 }
@@ -53,21 +67,58 @@ func TestCacheExpire(t *testing.T) {
 func TestCacheLength(t *testing.T) {
 	cache := NewLRUCache(10, 0)
 
-	for i :=0; i<10; i++ {
-		cache.Set(i, i*i)
+	for i := 0; i < 10; i++ {
+		err := cache.Set(i, i*i)
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		if cache.Len() != i+1 {
 			t.Fatal("cache length error")
 		}
 	}
 
-	cache.Set("test", "test")
-	if cache.Len() != 10 {
+	err := cache.Set("test", "test")
+	if err != nil {
+		t.Fatal(err)
+	} else if cache.Len() != 10 {
 		t.Fatal("cache length error")
 	}
 
 	cache.Clear()
 	if cache.Len() != 0 {
 		t.Fatal("cache length error")
+	}
+}
+
+func TestCacheDel(t *testing.T) {
+	cache := NewLRUCache(0, 1)
+
+	key := "test"
+	value := "test"
+	err := cache.Set(key, value)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cached, ok, err := cache.Get(value)
+	if err != nil {
+		t.Fatal(err)
+	} else if !ok {
+		t.Fatal("not found value by key:", key)
+	} else if cached != value {
+		t.Fatal("cached value missmatch")
+	}
+
+	err = cache.Del(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, ok, err = cache.Get(value)
+	if err != nil {
+		t.Fatal(err)
+	} else if ok {
+		t.Fatal("found value by key:", key)
 	}
 }

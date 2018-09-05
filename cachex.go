@@ -10,11 +10,19 @@ import (
 
 type MakerFunc func(key interface{}) (value interface{}, err error)
 
-var ErrorNotFound error = errors.New("not found")
+var (
+	ErrNotFound error = errors.New("not found")
+
+	ErrNotSupported error = errors.New("not supported operation")
+)
 
 type Storage interface {
 	Get(key interface{}) (value interface{}, ok bool, err error)
 	Set(key, value interface{}) (err error)
+}
+
+type DeletableStorage interface {
+	Storage
 	Del(key interface{}) (err error)
 }
 
@@ -55,7 +63,7 @@ func (c *Cachex) Get(key interface{}) (value interface{}, err error) {
 		if c.NotFound != nil {
 			return nil, c.NotFound
 		} else {
-			return nil, ErrorNotFound
+			return nil, ErrNotFound
 		}
 	}
 
@@ -90,5 +98,9 @@ func (c *Cachex) Set(key, value interface{}) (err error) {
 }
 
 func (c *Cachex) Del(key interface{}) (err error) {
-	return c.storage.Del(key)
+	s, ok := c.storage.(DeletableStorage)
+	if ok {
+		s.Del(key)
+	}
+	return ErrNotSupported
 }
