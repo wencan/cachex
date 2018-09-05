@@ -8,7 +8,7 @@ import (
 	"sync"
 )
 
-type MakerFunc func(key interface{}) (value interface{}, err error)
+type MakerFunc func(key interface{}) (value interface{}, ok bool, err error)
 
 var ErrorNotFound error = errors.New("not found")
 
@@ -67,15 +67,21 @@ func (c *Cachex) Get(key interface{}) (value interface{}, err error) {
 	}
 
 	if !loaded {
-		value, err = c.maker(key)
+		value, ok, err := c.maker(key)
 		if err != nil {
 			sentinel.Done(value, err)
 			return nil, err
+		} else if !ok {
+			if c.NotFound != nil {
+				return nil, c.NotFound
+			} else {
+				return nil, ErrorNotFound
+			}
 		}
 
 		sentinel.Done(value, nil)
 
-		err := c.storage.Set(key, value)
+		err = c.storage.Set(key, value)
 
 		c.sentinels.Delete(key)
 
