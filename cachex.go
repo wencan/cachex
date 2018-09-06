@@ -78,6 +78,7 @@ func (c *Cachex) Get(key interface{}) (value interface{}, err error) {
 		value, ok, err := c.maker(key)
 		if err != nil {
 			sentinel.Done(value, err)
+			c.sentinels.Delete(key)
 			return nil, err
 		} else if !ok {
 			if c.NotFound != nil {

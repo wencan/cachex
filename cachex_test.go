@@ -52,6 +52,27 @@ func TestCachexGetError(t *testing.T) {
 	if err != testError {
 		t.Fatal(err)
 	}
+
+	var retError error
+	returnErrorMaker := func(key interface{}) (value interface{}, ok bool, err error) {
+		if retError != nil {
+			return nil, false, retError
+		}
+		return nil, true, nil
+	}
+
+	c = NewCachex(NewLRUCache(1000, 60*5), returnErrorMaker)
+
+	retError = testError
+	_, err = c.Get(nil)
+	if err != testError {
+		t.Fatal(err)
+	}
+	retError = nil
+	_, err = c.Get(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestCachexGetConcurrency(t *testing.T) {
