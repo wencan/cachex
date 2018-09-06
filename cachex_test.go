@@ -13,29 +13,29 @@ import (
 
 var testError error = errors.New("test")
 
-func make_square_maker(key interface{}) (value interface{}, err error) {
+func makeSquareMaker(key interface{}) (value interface{}, ok bool, err error) {
 	time.Sleep(time.Second)
 
 	num := key.(int)
 
-	return num * num, nil
+	return num * num, true, nil
 }
 
-func make_random_maker(key interface{}) (value interface{}, err error) {
+func makeRandomMaker(key interface{}) (value interface{}, ok bool, err error) {
 	time.Sleep(time.Second)
 
 	num := key.(int)
 
 	rand.Seed(time.Now().Unix())
-	return num + rand.Int(), nil
+	return num + rand.Int(), true, nil
 }
 
-func make_error_maker(key interface{}) (value interface{}, err error) {
-	return nil, testError
+func makeErrorMaker(key interface{}) (value interface{}, ok bool, err error) {
+	return nil, false, testError
 }
 
-func TestCachex_Get(t *testing.T) {
-	c := NewCachex(NewLRUCache(1000, 60*5), make_square_maker)
+func TestCachexGet(t *testing.T) {
+	c := NewCachex(NewLRUCache(1000, 60*5), makeSquareMaker)
 
 	value, err := c.Get(100)
 	if err != nil {
@@ -45,8 +45,8 @@ func TestCachex_Get(t *testing.T) {
 	}
 }
 
-func TestCachex_Get_Error(t *testing.T) {
-	c := NewCachex(NewLRUCache(1000, 60*5), make_error_maker)
+func TestCachexGetError(t *testing.T) {
+	c := NewCachex(NewLRUCache(1000, 60*5), makeErrorMaker)
 
 	_, err := c.Get(100)
 	if err != testError {
@@ -54,8 +54,8 @@ func TestCachex_Get_Error(t *testing.T) {
 	}
 }
 
-func TestCachex_Get_Concurrency(t *testing.T) {
-	c := NewCachex(NewLRUCache(1000, 60*5), make_random_maker)
+func TestCachexGetConcurrency(t *testing.T) {
+	c := NewCachex(NewLRUCache(1000, 60*5), makeRandomMaker)
 
 	ch := make(chan int, 100)
 	for i := 0; i < 100; i++ {
@@ -101,19 +101,19 @@ func (s *testStorage) Del(key interface{}) (err error) {
 	return nil
 }
 
-func testStorage_maker(key interface{}) (value interface{}, err error) {
+func testStorageMaker(key interface{}) (value interface{}, ok bool, err error) {
 	num, ok := key.(int)
 	if !ok {
-		return nil, errors.New("key type error")
+		return nil, false, errors.New("key type error")
 	}
 
 	rand.Seed(time.Now().Unix())
-	return num + rand.Int(), nil
+	return num + rand.Int(), true, nil
 }
 
 func TestCachex_Storage(t *testing.T) {
 	s := &testStorage{}
-	c := NewCachex(s, testStorage_maker)
+	c := NewCachex(s, testStorageMaker)
 
 	value1, err := c.Get(100)
 	if err != nil {

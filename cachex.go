@@ -83,7 +83,7 @@ func (c *Cachex) Get(key interface{}) (value interface{}, err error) {
 			if c.NotFound != nil {
 				return nil, c.NotFound
 			} else {
-				return nil, ErrorNotFound
+				return nil, ErrNotFound
 			}
 		}
 
