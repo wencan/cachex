@@ -14,16 +14,12 @@ import (
 var testError error = errors.New("test")
 
 func makeSquareMaker(key interface{}) (value interface{}, ok bool, err error) {
-	time.Sleep(time.Second)
-
 	num := key.(int)
 
 	return num * num, true, nil
 }
 
 func makeRandomMaker(key interface{}) (value interface{}, ok bool, err error) {
-	time.Sleep(time.Second)
-
 	num := key.(int)
 
 	rand.Seed(time.Now().Unix())
@@ -81,17 +77,19 @@ func TestCachexGetConcurrency(t *testing.T) {
 	ch := make(chan int, 100)
 	for i := 0; i < 100; i++ {
 		go func() {
-			value, err := c.Get(100)
-			if err != nil {
-				t.Fatal(err)
-			}
+			for j := 0; j < 100; j++ {
+				value, err := c.Get(100)
+				if err != nil {
+					t.Fatal(err)
+				}
 
-			ch <- value.(int)
+				ch <- value.(int)
+			}
 		}()
 	}
 
 	var number int
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 10000; i++ {
 		if i == 0 {
 			number = <-ch
 		} else {

@@ -4,6 +4,7 @@ package cachex
 // 2017-08-31
 
 import (
+	"sync"
 	"time"
 )
 
@@ -19,6 +20,8 @@ type LRUCache struct {
 	Mapping *ListMap
 
 	lock AtomicMutex
+
+	entryPool sync.Pool
 }
 
 func NewLRUCache(maxEntries int, TTLSeconds int) *LRUCache {
@@ -26,6 +29,11 @@ func NewLRUCache(maxEntries int, TTLSeconds int) *LRUCache {
 		MaxEntries: maxEntries,
 		TTLSeconds: TTLSeconds,
 		Mapping:    NewListMap(),
+		entryPool: sync.Pool{
+			New: func() interface{} {
+				return &cacheEntry{}
+			},
+		},
 	}
 }
 
@@ -35,23 +43,25 @@ func (c *LRUCache) Set(key, value interface{}) (err error) {
 
 	item, ok := c.Mapping.Get(key)
 	if ok {
-		entry := item.(cacheEntry)
+		entry := item.(*cacheEntry)
 		entry.value = value
 		entry.created = time.Now().Unix()
 
 		c.Mapping.MoveToFront(key)
 	} else {
-		entry := &cacheEntry{
-			value:   value,
-			created: time.Now().Unix(),
-		}
-
-		len := c.Mapping.Len()
+		entry := c.entryPool.Get().(*cacheEntry)
+		entry.value = value
+		entry.created = time.Now().Unix()
 
 		c.Mapping.PushFront(key, entry)
 
-		if c.MaxEntries != 0 && len >= c.MaxEntries {
-			c.Mapping.PopBack()
+		if c.MaxEntries > 0 {
+			for c.Mapping.Len() > c.MaxEntries {
+				entry, _ := c.Mapping.PopBack()
+				if entry != nil {
+					c.entryPool.Put(entry)
+				}
+			}
 		}
 	}
 
@@ -67,6 +77,8 @@ func (c *LRUCache) Get(key interface{}) (value interface{}, ok bool, err error) 
 		entry := item.(*cacheEntry)
 		if c.TTLSeconds != 0 {
 			if int(time.Now().Unix()-entry.created) >= c.TTLSeconds {
+				c.Mapping.Pop(key)
+				c.entryPool.Put(entry)
 				return nil, false, nil
 			}
 		}
@@ -82,7 +94,10 @@ func (c *LRUCache) Remove(key interface{}) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	c.Mapping.Pop(key)
+	entry, _ := c.Mapping.Pop(key)
+	if entry != nil {
+		c.entryPool.Put(entry)
+	}
 }
 
 func (c *LRUCache) Del(key interface{}) (err error) {
@@ -101,5 +116,10 @@ func (c *LRUCache) Clear() {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	c.Mapping.Clear()
+	for c.Mapping.Len() != 0 {
+		entry, _ := c.Mapping.PopBack()
+		if entry != nil {
+			c.entryPool.Put(entry)
+		}
+	}
 }

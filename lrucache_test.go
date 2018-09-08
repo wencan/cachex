@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-func TestCacheMaxEntries(t *testing.T) {
+func TestLRUCacheMaxEntries(t *testing.T) {
 	cache := NewLRUCache(10, 0)
 
 	for i := 0; i < 11; i++ {
@@ -35,7 +35,7 @@ func TestCacheMaxEntries(t *testing.T) {
 	}
 }
 
-func TestCacheExpire(t *testing.T) {
+func TestLRUCacheExpire(t *testing.T) {
 	cache := NewLRUCache(0, 1)
 
 	key := "test"
@@ -54,7 +54,7 @@ func TestCacheExpire(t *testing.T) {
 		t.Fatal("cached value missmatch")
 	}
 
-	time.Sleep(time.Second * 2)
+	time.Sleep(time.Second)
 
 	_, ok, err = cache.Get(value)
 	if err != nil {
@@ -64,7 +64,7 @@ func TestCacheExpire(t *testing.T) {
 	}
 }
 
-func TestCacheLength(t *testing.T) {
+func TestLRUCacheLength(t *testing.T) {
 	cache := NewLRUCache(10, 0)
 
 	for i := 0; i < 10; i++ {
@@ -91,7 +91,7 @@ func TestCacheLength(t *testing.T) {
 	}
 }
 
-func TestCacheDel(t *testing.T) {
+func TestLRUCacheDel(t *testing.T) {
 	cache := NewLRUCache(0, 1)
 
 	key := "test"
