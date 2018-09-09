@@ -41,18 +41,11 @@ func NewCachex(storage Storage, maker MakerFunc) (c *Cachex) {
 		storage: storage,
 		maker:   maker,
 	}
-
 	return c
 }
 
 func (c *Cachex) Get(key interface{}) (value interface{}, err error) {
-	actual, ok := c.sentinels.Load(key)
-	if ok {
-		sentinel := actual.(*Sentinel)
-		return sentinel.Wait()
-	}
-
-	value, ok, err = c.storage.Get(key)
+	value, ok, err := c.storage.Get(key)
 	if err != nil {
 		return nil, err
 	} else if ok {
@@ -74,18 +67,26 @@ func (c *Cachex) Get(key interface{}) (value interface{}, err error) {
 		newSentinel.Destroy()
 	}
 
+	value, ok, err = c.storage.Get(key)
+	if err != nil {
+		return nil, err
+	} else if ok {
+		return value, nil
+	}
+
 	if !loaded {
 		value, ok, err := c.maker(key)
+		if err == nil && !ok {
+			if c.NotFound != nil {
+				err = c.NotFound
+			} else {
+				err = ErrNotFound
+			}
+		}
 		if err != nil {
 			sentinel.Done(value, err)
 			c.sentinels.Delete(key)
 			return nil, err
-		} else if !ok {
-			if c.NotFound != nil {
-				return nil, c.NotFound
-			} else {
-				return nil, ErrNotFound
-			}
 		}
 
 		sentinel.Done(value, nil)

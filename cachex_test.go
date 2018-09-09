@@ -7,30 +7,19 @@ import (
 	"errors"
 	"math/rand"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
 
 var testError error = errors.New("test")
 
-func makeSquareMaker(key interface{}) (value interface{}, ok bool, err error) {
-	num := key.(int)
-
-	return num * num, true, nil
-}
-
-func makeRandomMaker(key interface{}) (value interface{}, ok bool, err error) {
-	num := key.(int)
-
-	rand.Seed(time.Now().Unix())
-	return num + rand.Int(), true, nil
-}
-
-func makeErrorMaker(key interface{}) (value interface{}, ok bool, err error) {
-	return nil, false, testError
-}
-
 func TestCachexGet(t *testing.T) {
+	makeSquareMaker := func(key interface{}) (value interface{}, ok bool, err error) {
+		num := key.(int)
+
+		return num * num, true, nil
+	}
 	c := NewCachex(NewLRUCache(1000, 60*5), makeSquareMaker)
 
 	value, err := c.Get(100)
@@ -42,6 +31,9 @@ func TestCachexGet(t *testing.T) {
 }
 
 func TestCachexGetError(t *testing.T) {
+	makeErrorMaker := func(key interface{}) (value interface{}, ok bool, err error) {
+		return nil, false, testError
+	}
 	c := NewCachex(NewLRUCache(1000, 60*5), makeErrorMaker)
 
 	_, err := c.Get(100)
@@ -56,7 +48,6 @@ func TestCachexGetError(t *testing.T) {
 		}
 		return nil, true, nil
 	}
-
 	c = NewCachex(NewLRUCache(1000, 60*5), returnErrorMaker)
 
 	retError = testError
@@ -72,32 +63,37 @@ func TestCachexGetError(t *testing.T) {
 }
 
 func TestCachexGetConcurrency(t *testing.T) {
-	c := NewCachex(NewLRUCache(1000, 60*5), makeRandomMaker)
+	routines := 1000
+	loopTimes := 1000
 
-	ch := make(chan int, 100)
-	for i := 0; i < 100; i++ {
+	total := int64(0)
+	returnKeyMaker := func(key interface{}) (value interface{}, ok bool, err error) {
+		atomic.AddInt64(&total, 1)
+		return key, true, nil
+	}
+	c := NewCachex(NewLRUCache(loopTimes, 0), returnKeyMaker)
+
+	var wg sync.WaitGroup
+	for i := 0; i < routines; i++ {
+		wg.Add(1)
 		go func() {
-			for j := 0; j < 100; j++ {
-				value, err := c.Get(100)
+			defer wg.Done()
+			for j := 0; j < loopTimes; j++ {
+				value, err := c.Get(j)
 				if err != nil {
 					t.Fatal(err)
 				}
-
-				ch <- value.(int)
+				n := value.(int)
+				if n != j {
+					t.Fatalf("value missmatch, got: %d, want: %d", n, j)
+				}
 			}
 		}()
 	}
+	wg.Wait()
 
-	var number int
-	for i := 0; i < 10000; i++ {
-		if i == 0 {
-			number = <-ch
-		} else {
-			value := <-ch
-			if number != value {
-				t.FailNow()
-			}
-		}
+	if total != int64(loopTimes) {
+		t.Fatalf("total missmatch, got: %d, want: %d", total, loopTimes)
 	}
 }
 
