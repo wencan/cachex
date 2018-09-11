@@ -36,7 +36,7 @@ func TestCachexGetError(t *testing.T) {
 	}
 	c := NewCachex(NewLRUCache(1000, 60*5), makeErrorMaker)
 
-	_, err := c.Get(100)
+	_, err := c.Get(1)
 	if err != testError {
 		t.Fatal(err)
 	}
@@ -51,12 +51,21 @@ func TestCachexGetError(t *testing.T) {
 	c = NewCachex(NewLRUCache(1000, 60*5), returnErrorMaker)
 
 	retError = testError
-	_, err = c.Get(nil)
+	_, err = c.Get(1)
 	if err != testError {
 		t.Fatal(err)
 	}
 	retError = nil
-	_, err = c.Get(nil)
+	_, err = c.Get(1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = c.Get(1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.Del(1)
+	_, err = c.Get(1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -95,6 +104,25 @@ func TestCachexGetConcurrency(t *testing.T) {
 	if total != int64(loopTimes) {
 		t.Fatalf("total missmatch, got: %d, want: %d", total, loopTimes)
 	}
+
+	c = NewCachex(NewLRUCache(loopTimes, 1), returnKeyMaker)
+	for i := 0; i < routines; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for j := 0; j < loopTimes; j++ {
+				value, err := c.Get(j)
+				if err != nil {
+					t.Fatal(err)
+				}
+				n := value.(int)
+				if n != j {
+					t.Fatalf("value missmatch, got: %d, want: %d", n, j)
+				}
+			}
+		}()
+	}
+	wg.Wait()
 }
 
 type testStorage struct {

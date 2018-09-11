@@ -71,6 +71,10 @@ func (c *Cachex) Get(key interface{}) (value interface{}, err error) {
 	if err != nil {
 		return nil, err
 	} else if ok {
+		if !loaded {
+			sentinel.Done(value, err)
+			c.sentinels.Delete(key)
+		}
 		return value, nil
 	}
 
@@ -89,10 +93,9 @@ func (c *Cachex) Get(key interface{}) (value interface{}, err error) {
 			return nil, err
 		}
 
-		sentinel.Done(value, nil)
-
 		err = c.storage.Set(key, value)
 
+		sentinel.Done(value, nil)
 		c.sentinels.Delete(key)
 
 		return value, err
