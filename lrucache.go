@@ -19,7 +19,7 @@ type LRUCache struct {
 
 	Mapping *ListMap
 
-	lock AtomicMutex
+	lock sync.Mutex
 
 	entryPool sync.Pool
 }
