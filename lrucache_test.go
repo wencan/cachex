@@ -36,7 +36,7 @@ func TestLRUCacheMaxEntries(t *testing.T) {
 }
 
 func TestLRUCacheExpire(t *testing.T) {
-	cache := NewLRUCache(0, 1)
+	cache := NewLRUCache(0, time.Second)
 
 	key := "test"
 	value := "test"
@@ -92,7 +92,7 @@ func TestLRUCacheLength(t *testing.T) {
 }
 
 func TestLRUCacheDel(t *testing.T) {
-	cache := NewLRUCache(0, 1)
+	cache := NewLRUCache(0, time.Second)
 
 	key := "test"
 	value := "test"

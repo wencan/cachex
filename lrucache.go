@@ -10,12 +10,12 @@ import (
 
 type cacheEntry struct {
 	value   interface{}
-	created int64
+	created time.Time
 }
 
 type LRUCache struct {
 	MaxEntries int
-	TTLSeconds int
+	TTL        time.Duration
 
 	Mapping *ListMap
 
@@ -24,10 +24,10 @@ type LRUCache struct {
 	entryPool sync.Pool
 }
 
-func NewLRUCache(maxEntries int, TTLSeconds int) *LRUCache {
+func NewLRUCache(maxEntries int, TTL time.Duration) *LRUCache {
 	return &LRUCache{
 		MaxEntries: maxEntries,
-		TTLSeconds: TTLSeconds,
+		TTL:        TTL,
 		Mapping:    NewListMap(),
 		entryPool: sync.Pool{
 			New: func() interface{} {
@@ -45,13 +45,13 @@ func (c *LRUCache) Set(key, value interface{}) (err error) {
 	if ok {
 		entry := item.(*cacheEntry)
 		entry.value = value
-		entry.created = time.Now().Unix()
+		entry.created = time.Now()
 
 		c.Mapping.MoveToFront(key)
 	} else {
 		entry := c.entryPool.Get().(*cacheEntry)
 		entry.value = value
-		entry.created = time.Now().Unix()
+		entry.created = time.Now()
 
 		c.Mapping.PushFront(key, entry)
 
@@ -75,8 +75,8 @@ func (c *LRUCache) Get(key interface{}) (value interface{}, ok bool, err error) 
 	item, ok := c.Mapping.Get(key)
 	if ok {
 		entry := item.(*cacheEntry)
-		if c.TTLSeconds != 0 {
-			if int(time.Now().Unix()-entry.created) >= c.TTLSeconds {
+		if c.TTL != 0 {
+			if time.Now().Sub(entry.created) >= c.TTL {
 				c.Mapping.Pop(key)
 				c.entryPool.Put(entry)
 				return nil, false, nil

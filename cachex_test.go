@@ -20,7 +20,7 @@ func TestCachexGet(t *testing.T) {
 
 		return num * num, true, nil
 	}
-	c := NewCachex(NewLRUCache(1000, 60*5), makeSquareMaker)
+	c := NewCachex(NewLRUCache(1000, time.Minute*5), makeSquareMaker)
 
 	value, err := c.Get(100)
 	if err != nil {
@@ -34,7 +34,7 @@ func TestCachexGetError(t *testing.T) {
 	makeErrorMaker := func(key interface{}) (value interface{}, ok bool, err error) {
 		return nil, false, testError
 	}
-	c := NewCachex(NewLRUCache(1000, 60*5), makeErrorMaker)
+	c := NewCachex(NewLRUCache(1000, time.Minute*5), makeErrorMaker)
 
 	_, err := c.Get(1)
 	if err != testError {
@@ -48,7 +48,7 @@ func TestCachexGetError(t *testing.T) {
 		}
 		return nil, true, nil
 	}
-	c = NewCachex(NewLRUCache(1000, 60*5), returnErrorMaker)
+	c = NewCachex(NewLRUCache(1000, time.Minute*5), returnErrorMaker)
 
 	retError = testError
 	_, err = c.Get(1)
@@ -105,7 +105,7 @@ func TestCachexGetConcurrency(t *testing.T) {
 		t.Fatalf("total missmatch, got: %d, want: %d", total, loopTimes)
 	}
 
-	c = NewCachex(NewLRUCache(loopTimes, 1), returnKeyMaker)
+	c = NewCachex(NewLRUCache(loopTimes, time.Second), returnKeyMaker)
 	for i := 0; i < routines; i++ {
 		wg.Add(1)
 		go func() {
