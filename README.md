@@ -23,7 +23,7 @@ func mysql_query(query interface{}) (result interface{}, ok bool, err error) {
 }
 
 func main() {
-	storage := cachex.NewLRUCache(1000, 60*5)
+	storage := cachex.NewLRUCache(1000, time.Minute*5)
 	cache := cachex.NewCachex(storage, mysql_query)
 
 	value, err := cache.Get(&Student{Id: "123"})
