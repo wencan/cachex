@@ -8,8 +8,6 @@ import (
 	"sync"
 )
 
-type MakerFunc func(key interface{}) (value interface{}, ok bool, err error)
-
 var (
 	ErrNotFound error = errors.New("not found")
 
@@ -26,22 +24,36 @@ type DeletableStorage interface {
 	Del(key interface{}) (err error)
 }
 
+type QueryFunc func(key interface{}) (value interface{}, ok bool, err error)
+
+func (fun QueryFunc) Query(key interface{}) (value interface{}, ok bool, err error) {
+	return fun(key)
+}
+
+type Querier interface {
+	Query(key interface{}) (value interface{}, ok bool, err error)
+}
+
 type Cachex struct {
 	storage Storage
 
-	maker MakerFunc
+	querier Querier
 
 	sentinels sync.Map
 
 	NotFound error
 }
 
-func NewCachex(storage Storage, maker MakerFunc) (c *Cachex) {
+func NewCachexWithQuerier(storage Storage, querier Querier) (c *Cachex) {
 	c = &Cachex{
 		storage: storage,
-		maker:   maker,
+		querier: querier,
 	}
 	return c
+}
+
+func NewCachex(storage Storage, query QueryFunc) (c *Cachex) {
+	return NewCachexWithQuerier(storage, QueryFunc(query))
 }
 
 func (c *Cachex) Get(key interface{}) (value interface{}, err error) {
@@ -52,7 +64,7 @@ func (c *Cachex) Get(key interface{}) (value interface{}, err error) {
 		return value, nil
 	}
 
-	if c.maker == nil {
+	if c.querier == nil {
 		if c.NotFound != nil {
 			return nil, c.NotFound
 		} else {
@@ -79,7 +91,7 @@ func (c *Cachex) Get(key interface{}) (value interface{}, err error) {
 	}
 
 	if !loaded {
-		value, ok, err := c.maker(key)
+		value, ok, err := c.querier.Query(key)
 		if err == nil && !ok {
 			if c.NotFound != nil {
 				err = c.NotFound
