@@ -77,9 +77,10 @@ func (c *LRUCache) Get(key interface{}) (value interface{}, ok bool, err error) 
 		entry := item.(*cacheEntry)
 		if c.TTL != 0 {
 			if time.Now().Sub(entry.created) >= c.TTL {
-				c.Mapping.Pop(key)
-				c.entryPool.Put(entry)
-				return nil, false, nil
+				c.Mapping.MoveToBack(key)
+				// c.Mapping.Pop(key)
+				// c.entryPool.Put(entry)
+				return entry.value, false, nil
 			}
 		}
 

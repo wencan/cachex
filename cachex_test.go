@@ -1,8 +1,5 @@
 package cachex
 
-// wencan
-// 2017-09-02 14:06
-
 import (
 	"errors"
 	"math/rand"
@@ -15,12 +12,12 @@ import (
 var testError error = errors.New("test")
 
 func TestCachexGet(t *testing.T) {
-	makeSquareMaker := func(key interface{}) (value interface{}, ok bool, err error) {
+	squareQuery := func(key interface{}) (value interface{}, ok bool, err error) {
 		num := key.(int)
 
 		return num * num, true, nil
 	}
-	c := NewCachex(NewLRUCache(1000, time.Minute*5), makeSquareMaker)
+	c := NewCachex(NewLRUCache(1000, time.Minute*5), squareQuery)
 
 	value, err := c.Get(100)
 	if err != nil {
@@ -31,10 +28,10 @@ func TestCachexGet(t *testing.T) {
 }
 
 func TestCachexGetError(t *testing.T) {
-	makeErrorMaker := func(key interface{}) (value interface{}, ok bool, err error) {
+	errorQuery := func(key interface{}) (value interface{}, ok bool, err error) {
 		return nil, false, testError
 	}
-	c := NewCachex(NewLRUCache(1000, time.Minute*5), makeErrorMaker)
+	c := NewCachex(NewLRUCache(1000, time.Minute*5), errorQuery)
 
 	_, err := c.Get(1)
 	if err != testError {
@@ -42,13 +39,13 @@ func TestCachexGetError(t *testing.T) {
 	}
 
 	var retError error
-	returnErrorMaker := func(key interface{}) (value interface{}, ok bool, err error) {
+	returnErrorQuery := func(key interface{}) (value interface{}, ok bool, err error) {
 		if retError != nil {
 			return nil, false, retError
 		}
 		return nil, true, nil
 	}
-	c = NewCachex(NewLRUCache(1000, time.Minute*5), returnErrorMaker)
+	c = NewCachex(NewLRUCache(1000, time.Minute*5), returnErrorQuery)
 
 	retError = testError
 	_, err = c.Get(1)
@@ -76,11 +73,11 @@ func TestCachexGetConcurrency(t *testing.T) {
 	loopTimes := 1000
 
 	total := int64(0)
-	returnKeyMaker := func(key interface{}) (value interface{}, ok bool, err error) {
+	returnKeyQuery := func(key interface{}) (value interface{}, ok bool, err error) {
 		atomic.AddInt64(&total, 1)
 		return key, true, nil
 	}
-	c := NewCachex(NewLRUCache(loopTimes, 0), returnKeyMaker)
+	c := NewCachex(NewLRUCache(loopTimes, 0), returnKeyQuery)
 
 	var wg sync.WaitGroup
 	for i := 0; i < routines; i++ {
@@ -105,7 +102,7 @@ func TestCachexGetConcurrency(t *testing.T) {
 		t.Fatalf("total missmatch, got: %d, want: %d", total, loopTimes)
 	}
 
-	c = NewCachex(NewLRUCache(loopTimes, time.Second), returnKeyMaker)
+	c = NewCachex(NewLRUCache(loopTimes, time.Second), returnKeyQuery)
 	for i := 0; i < routines; i++ {
 		wg.Add(1)
 		go func() {
@@ -144,7 +141,7 @@ func (s *testStorage) Del(key interface{}) (err error) {
 	return nil
 }
 
-func testStorageMaker(key interface{}) (value interface{}, ok bool, err error) {
+func testStorageQuery(key interface{}) (value interface{}, ok bool, err error) {
 	num, ok := key.(int)
 	if !ok {
 		return nil, false, errors.New("key type error")
@@ -156,7 +153,7 @@ func testStorageMaker(key interface{}) (value interface{}, ok bool, err error) {
 
 func TestCachex_Storage(t *testing.T) {
 	s := &testStorage{}
-	c := NewCachex(s, testStorageMaker)
+	c := NewCachex(s, testStorageQuery)
 
 	value1, err := c.Get(100)
 	if err != nil {
@@ -169,6 +166,41 @@ func TestCachex_Storage(t *testing.T) {
 	}
 
 	if value1 != value2 {
+		t.FailNow()
+	}
+}
+
+func TestCachex_UseStaleWhenError(t *testing.T) {
+	var retError error
+	returnErrorQuery := func(key interface{}) (value interface{}, ok bool, err error) {
+		if retError != nil {
+			return nil, false, retError
+		}
+		return time.Now().Nanosecond(), true, nil
+	}
+	c := NewCachex(NewLRUCache(1000, time.Nanosecond), returnErrorQuery)
+	c.UseStaleWhenError(true)
+
+	value, err := c.Get(1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(time.Nanosecond * 2)
+	retError = testError
+	newValue, err := c.Get(1)
+	if err != testError {
+		t.FailNow()
+	}
+	if newValue != value {
+		t.FailNow()
+	}
+
+	retError = nil
+	newValue, err = c.Get(1)
+	if err != nil {
+		t.FailNow()
+	}
+	if newValue == value {
 		t.FailNow()
 	}
 }

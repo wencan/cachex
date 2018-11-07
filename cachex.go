@@ -42,6 +42,9 @@ type Cachex struct {
 	sentinels sync.Map
 
 	NotFound error
+
+	// UseStale UseStaleWhenError
+	UseStale bool
 }
 
 func NewCachexWithQuerier(storage Storage, querier Querier) (c *Cachex) {
@@ -79,6 +82,7 @@ func (c *Cachex) Get(key interface{}) (value interface{}, err error) {
 		newSentinel.Destroy()
 	}
 
+	var stale interface{}
 	value, ok, err = c.storage.Get(key)
 	if err != nil {
 		return nil, err
@@ -88,10 +92,19 @@ func (c *Cachex) Get(key interface{}) (value interface{}, err error) {
 			c.sentinels.Delete(key)
 		}
 		return value, nil
+	} else if value != nil {
+		stale = value
 	}
 
 	if !loaded {
 		value, ok, err := c.querier.Query(key)
+		if err != nil && c.UseStale && stale != nil {
+			// use stale
+			sentinel.Done(stale, err)
+			c.sentinels.Delete(key)
+			return stale, err
+		}
+
 		if err == nil && !ok {
 			if c.NotFound != nil {
 				err = c.NotFound
@@ -126,4 +139,9 @@ func (c *Cachex) Del(key interface{}) (err error) {
 		s.Del(key)
 	}
 	return ErrNotSupported
+}
+
+// UseStaleWhenError 当查询发生错误时，使用过期的缓存数据。该特性需要Storage支持（Get返回并继续暂存过期的缓存数据）。默认关闭。
+func (c *Cachex) UseStaleWhenError(use bool) {
+	c.UseStale = use
 }
