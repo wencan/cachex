@@ -1,4 +1,4 @@
-package cachex
+package lrucache
 
 // wencan
 // 2017-08-31
@@ -13,6 +13,7 @@ type cacheEntry struct {
 	created time.Time
 }
 
+// LRUCache 本地LRU缓存类，实现了cachex.DeletableStorage接口
 type LRUCache struct {
 	MaxEntries int
 	TTL        time.Duration
@@ -24,6 +25,7 @@ type LRUCache struct {
 	entryPool sync.Pool
 }
 
+// NewLRUCache 新建本地LRU缓存类
 func NewLRUCache(maxEntries int, TTL time.Duration) *LRUCache {
 	return &LRUCache{
 		MaxEntries: maxEntries,
@@ -37,6 +39,7 @@ func NewLRUCache(maxEntries int, TTL time.Duration) *LRUCache {
 	}
 }
 
+// Set 设置缓存数据
 func (c *LRUCache) Set(key, value interface{}) (err error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
@@ -68,6 +71,7 @@ func (c *LRUCache) Set(key, value interface{}) (err error) {
 	return nil
 }
 
+// Get 获取缓存数据
 func (c *LRUCache) Get(key interface{}) (value interface{}, ok bool, err error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
@@ -77,6 +81,8 @@ func (c *LRUCache) Get(key interface{}) (value interface{}, ok bool, err error) 
 		entry := item.(*cacheEntry)
 		if c.TTL != 0 {
 			if time.Now().Sub(entry.created) >= c.TTL {
+				// 将过期数据移到队列后方，而不是删除
+				// 如果查询出错，还可能使用保留的过期数据
 				c.Mapping.MoveToBack(key)
 				// c.Mapping.Pop(key)
 				// c.entryPool.Put(entry)
@@ -91,6 +97,7 @@ func (c *LRUCache) Get(key interface{}) (value interface{}, ok bool, err error) 
 	return nil, false, nil
 }
 
+// Remove 删除缓存数据
 func (c *LRUCache) Remove(key interface{}) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
@@ -101,11 +108,13 @@ func (c *LRUCache) Remove(key interface{}) {
 	}
 }
 
+// Del 删除缓存数据
 func (c *LRUCache) Del(key interface{}) (err error) {
 	c.Remove(key)
 	return nil
 }
 
+// Len 缓存的数据的长度
 func (c *LRUCache) Len() int {
 	c.lock.Lock()
 	defer c.lock.Unlock()
@@ -113,6 +122,7 @@ func (c *LRUCache) Len() int {
 	return c.Mapping.Len()
 }
 
+// Clear 清空缓存的数据
 func (c *LRUCache) Clear() {
 	c.lock.Lock()
 	defer c.lock.Unlock()

@@ -1,4 +1,4 @@
-package cachex
+package lrucache
 
 // wencan
 // 2017-09-02 09:01
@@ -8,19 +8,19 @@ import (
 )
 
 type listEntry struct {
-	key interface{}
+	key   interface{}
 	value interface{}
 }
 
 type ListMap struct {
 	sequence *list.List
-	mapping map[interface{}]*list.Element
+	mapping  map[interface{}]*list.Element
 }
 
 func NewListMap() *ListMap {
 	return &ListMap{
 		sequence: list.New(),
-		mapping: make(map[interface{}]*list.Element),
+		mapping:  make(map[interface{}]*list.Element),
 	}
 }
 
@@ -95,7 +95,7 @@ func (m *ListMap) PopBack() (value interface{}, ok bool) {
 
 func (m *ListMap) PushFront(key interface{}, value interface{}) {
 	entry := &listEntry{
-		key: key,
+		key:   key,
 		value: value,
 	}
 
@@ -105,7 +105,7 @@ func (m *ListMap) PushFront(key interface{}, value interface{}) {
 
 func (m *ListMap) PushBack(key interface{}, value interface{}) {
 	entry := &listEntry{
-		key: key,
+		key:   key,
 		value: value,
 	}
 
