@@ -1,4 +1,4 @@
-package cachex
+package lrucache
 
 // wencan
 // 2017-09-02 09:50

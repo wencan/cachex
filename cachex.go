@@ -58,18 +58,13 @@ type Cachex struct {
 	UseStale bool
 }
 
-// NewCachexWithQuerier 新建缓存处理对象
-func NewCachexWithQuerier(storage Storage, querier Querier) (c *Cachex) {
+// NewCachex 新建缓存处理对象
+func NewCachex(storage Storage, querier Querier) (c *Cachex) {
 	c = &Cachex{
 		storage: storage,
 		querier: querier,
 	}
 	return c
-}
-
-// NewCachex 新建缓存处理对象
-func NewCachex(storage Storage, query QueryFunc) (c *Cachex) {
-	return NewCachexWithQuerier(storage, QueryFunc(query))
 }
 
 // Get 获取

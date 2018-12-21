@@ -3,204 +3,241 @@ package cachex
 import (
 	"errors"
 	"math/rand"
-	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"golang.org/x/sync/errgroup"
+
+	"github.com/stretchr/testify/assert"
+
+	"github.com/golang/mock/gomock"
+	"github.com/wencan/cachex/mock_cachex"
 )
 
-var testError error = errors.New("test")
+func init() {
+	rand.Seed(time.Now().Unix())
+}
 
 func TestCachexGet(t *testing.T) {
-	squareQuery := func(key interface{}) (value interface{}, ok bool, err error) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	cached := make(map[interface{}]interface{})
+	mockStorage := mock_cachex.NewMockStorage(ctrl)
+	mockStorage.EXPECT().Set(gomock.Any(), gomock.Any()).DoAndReturn(func(key, value interface{}) error {
+		cached[key] = value
+		return nil
+	}).AnyTimes()
+	mockStorage.EXPECT().Get(gomock.AssignableToTypeOf(1)).DoAndReturn(func(key interface{}) (interface{}, bool, error) {
+		value, exist := cached[key]
+		return value, exist, nil
+	}).AnyTimes()
+
+	queried := make(map[interface{}]interface{})
+	mockQuery := mock_cachex.NewMockQuerier(ctrl)
+	mockQuery.EXPECT().Query(gomock.AssignableToTypeOf(1)).DoAndReturn(func(key interface{}) (interface{}, bool, error) {
 		num := key.(int)
+		result, ok := queried[num]
+		if ok { // 一个key，只执行查询一次，否则算错
+			return nil, false, errors.New("always return")
+		}
+		result = num * num
+		queried[key] = result
+		return result, true, nil
+	}).AnyTimes()
 
-		return num * num, true, nil
+	c := NewCachex(mockStorage, mockQuery)
+
+	for i, k := rand.Intn(1000), 0; k < 100; k++ {
+		i += k
+		for j := 0; j < rand.Intn(10); j++ {
+			value, err := c.Get(i)
+			if assert.Equal(t, nil, err) {
+				assert.Equal(t, i*i, value.(int))
+			}
+		}
 	}
-	c := NewCachex(NewLRUCache(1000, time.Minute*5), squareQuery)
+}
 
-	value, err := c.Get(100)
-	if err != nil {
-		t.Fatal(err)
-	} else if value.(int) != 10000 {
-		t.FailNow()
+func TestCachexExpired(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	cached := make(map[interface{}]interface{})
+	expires := make(map[interface{}]int64)
+	mockStorage := mock_cachex.NewMockStorage(ctrl)
+	mockStorage.EXPECT().Set(gomock.Any(), gomock.Any()).DoAndReturn(func(key, value interface{}) error {
+		cached[key] = value
+		expires[key] = time.Now().UnixNano() + 1000*1000*100 // 0.1秒
+		return nil
+	}).AnyTimes()
+	mockStorage.EXPECT().Get(gomock.AssignableToTypeOf(1)).DoAndReturn(func(key interface{}) (interface{}, bool, error) {
+		if expire, exist := expires[key]; exist && expire > time.Now().UnixNano() {
+			return cached[key], true, nil
+		}
+		return nil, false, nil
+	}).AnyTimes()
+
+	base := 1
+	mockQuery := mock_cachex.NewMockQuerier(ctrl)
+	mockQuery.EXPECT().Query(gomock.AssignableToTypeOf(1)).DoAndReturn(func(key interface{}) (interface{}, bool, error) {
+		num := key.(int)
+		result := num * base
+		base++
+		return result, true, nil
+	}).AnyTimes()
+
+	c := NewCachex(mockStorage, mockQuery)
+
+	// 正常返回
+	value, err := c.Get(1)
+	if assert.NoError(t, err) {
+		// 缓存未过期
+		newValue, err := c.Get(1)
+		assert.NoError(t, err)
+		assert.Equal(t, value, newValue)
+
+		// 缓存过期
+		time.Sleep(time.Millisecond * 200)
+		newValue, err = c.Get(1)
+		assert.NoError(t, err)
+		assert.NotEqual(t, value, newValue)
 	}
 }
 
 func TestCachexGetError(t *testing.T) {
-	errorQuery := func(key interface{}) (value interface{}, ok bool, err error) {
-		return nil, false, testError
-	}
-	c := NewCachex(NewLRUCache(1000, time.Minute*5), errorQuery)
+	// 查询条件
+	storageSetErr := errors.New("storage set error")
+	storageGetErr := errors.New("storage get error")
+	queryQueryErr := errors.New("query error")
 
-	_, err := c.Get(1)
-	if err != testError {
-		t.Fatal(err)
-	}
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
-	var retError error
-	returnErrorQuery := func(key interface{}) (value interface{}, ok bool, err error) {
-		if retError != nil {
-			return nil, false, retError
-		}
-		return nil, true, nil
-	}
-	c = NewCachex(NewLRUCache(1000, time.Minute*5), returnErrorQuery)
+	mockStorage := mock_cachex.NewMockStorage(ctrl)
+	mockStorage.EXPECT().Set(gomock.Not(gomock.Eq(storageSetErr)), gomock.Any()).Return(nil).AnyTimes()
+	mockStorage.EXPECT().Set(gomock.Eq(storageSetErr), gomock.Any()).Return(storageSetErr).AnyTimes()
+	mockStorage.EXPECT().Get(gomock.Not(gomock.Eq(storageGetErr))).Return(nil, false, nil).AnyTimes()
+	mockStorage.EXPECT().Get(gomock.Eq(storageGetErr)).Return(nil, false, storageGetErr).AnyTimes()
 
-	retError = testError
-	_, err = c.Get(1)
-	if err != testError {
-		t.Fatal(err)
-	}
-	retError = nil
-	_, err = c.Get(1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = c.Get(1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	c.Del(1)
-	_, err = c.Get(1)
-	if err != nil {
-		t.Fatal(err)
+	mockQuery := mock_cachex.NewMockQuerier(ctrl)
+	mockQuery.EXPECT().Query(gomock.Not(gomock.Eq(queryQueryErr))).Return(nil, true, nil).AnyTimes()
+	mockQuery.EXPECT().Query(gomock.Eq(queryQueryErr)).Return(nil, false, queryQueryErr).AnyTimes()
+
+	c := NewCachex(mockStorage, mockQuery)
+
+	conditions := []error{storageSetErr, storageGetErr, queryQueryErr}
+	for _, cond := range conditions {
+		value, err := c.Get(cond)
+		assert.Equal(t, cond, err)
+		assert.Equal(t, nil, value)
 	}
 }
 
 func TestCachexGetConcurrency(t *testing.T) {
-	routines := 1000
-	loopTimes := 1000
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
+	routines := 100
+	loopTimes := 1000
 	total := int64(0)
-	returnKeyQuery := func(key interface{}) (value interface{}, ok bool, err error) {
+
+	cached := make(map[interface{}]interface{})
+	mockStorage := mock_cachex.NewMockStorage(ctrl)
+	mockStorage.EXPECT().Set(gomock.Any(), gomock.Any()).DoAndReturn(func(key, value interface{}) error {
+		cached[key] = value
+		return nil
+	}).AnyTimes()
+	mockStorage.EXPECT().Get(gomock.AssignableToTypeOf(1)).DoAndReturn(func(key interface{}) (interface{}, bool, error) {
+		if value, exist := cached[key]; exist {
+			return value, true, nil
+		}
+		return nil, false, nil
+	}).AnyTimes()
+
+	mockQuery := mock_cachex.NewMockQuerier(ctrl)
+	mockQuery.EXPECT().Query(gomock.AssignableToTypeOf(1)).DoAndReturn(func(key interface{}) (interface{}, bool, error) {
 		atomic.AddInt64(&total, 1)
 		return key, true, nil
-	}
-	c := NewCachex(NewLRUCache(loopTimes, 0), returnKeyQuery)
+	}).AnyTimes()
 
-	var wg sync.WaitGroup
+	c := NewCachex(mockStorage, mockQuery)
+
+	var g errgroup.Group
 	for i := 0; i < routines; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		g.Go(func() error {
 			for j := 0; j < loopTimes; j++ {
 				value, err := c.Get(j)
-				if err != nil {
-					t.Fatal(err)
+				// t.Log(value, err)
+				if !assert.NoError(t, err) {
+					return err
 				}
-				n := value.(int)
-				if n != j {
-					t.Fatalf("value missmatch, got: %d, want: %d", n, j)
-				}
-			}
-		}()
-	}
-	wg.Wait()
-
-	if total != int64(loopTimes) {
-		t.Fatalf("total missmatch, got: %d, want: %d", total, loopTimes)
-	}
-
-	c = NewCachex(NewLRUCache(loopTimes, time.Second), returnKeyQuery)
-	for i := 0; i < routines; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for j := 0; j < loopTimes; j++ {
-				value, err := c.Get(j)
-				if err != nil {
-					t.Fatal(err)
-				}
-				n := value.(int)
-				if n != j {
-					t.Fatalf("value missmatch, got: %d, want: %d", n, j)
+				if !assert.Equal(t, j, value.(int)) {
+					return errors.New("value missmatch")
 				}
 			}
-		}()
-	}
-	wg.Wait()
-}
-
-type testStorage struct {
-	mapping sync.Map
-}
-
-func (s *testStorage) Get(key interface{}) (value interface{}, ok bool, err error) {
-	value, ok = s.mapping.Load(key)
-	return value, ok, nil
-}
-
-func (s *testStorage) Set(key, value interface{}) (err error) {
-	s.mapping.Store(key, value)
-	return nil
-}
-
-func (s *testStorage) Del(key interface{}) (err error) {
-	s.mapping.Delete(key)
-	return nil
-}
-
-func testStorageQuery(key interface{}) (value interface{}, ok bool, err error) {
-	num, ok := key.(int)
-	if !ok {
-		return nil, false, errors.New("key type error")
+			return nil
+		})
 	}
 
-	rand.Seed(time.Now().Unix())
-	return num + rand.Int(), true, nil
-}
-
-func TestCachex_Storage(t *testing.T) {
-	s := &testStorage{}
-	c := NewCachex(s, testStorageQuery)
-
-	value1, err := c.Get(100)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	value2, err := c.Get(100)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if value1 != value2 {
-		t.FailNow()
+	if g.Wait() == nil {
+		assert.Equal(t, int64(loopTimes), total)
 	}
 }
 
 func TestCachex_UseStaleWhenError(t *testing.T) {
-	var retError error
-	returnErrorQuery := func(key interface{}) (value interface{}, ok bool, err error) {
-		if retError != nil {
-			return nil, false, retError
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	cached := make(map[interface{}]interface{})
+	expires := make(map[interface{}]int64)
+	mockStorage := mock_cachex.NewMockStorage(ctrl)
+	mockStorage.EXPECT().Set(gomock.Any(), gomock.Any()).DoAndReturn(func(key, value interface{}) error {
+		cached[key] = value
+		expires[key] = time.Now().UnixNano() + int64(time.Nanosecond*2)
+		return nil
+	}).AnyTimes()
+	mockStorage.EXPECT().Get(gomock.AssignableToTypeOf(1)).DoAndReturn(func(key interface{}) (interface{}, bool, error) {
+		value, exist := cached[key]
+		if !exist {
+			return nil, false, nil
+		}
+		expire, exist := expires[key]
+		if exist && expire <= time.Now().UnixNano() {
+			return value, false, nil
+		}
+		return value, true, nil
+	}).AnyTimes()
+
+	var testError = errors.New("test")
+	var returnErr error
+	mockQuery := mock_cachex.NewMockQuerier(ctrl)
+	mockQuery.EXPECT().Query(gomock.AssignableToTypeOf(1)).DoAndReturn(func(key interface{}) (interface{}, bool, error) {
+		if returnErr != nil {
+			return nil, false, returnErr
 		}
 		return time.Now().Nanosecond(), true, nil
-	}
-	c := NewCachex(NewLRUCache(1000, time.Nanosecond), returnErrorQuery)
+	}).AnyTimes()
+
+	c := NewCachex(mockStorage, mockQuery)
 	c.UseStaleWhenError(true)
 
+	// 正常返回
 	value, err := c.Get(1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	time.Sleep(time.Nanosecond * 2)
-	retError = testError
-	newValue, err := c.Get(1)
-	if err != testError {
-		t.FailNow()
-	}
-	if newValue != value {
-		t.FailNow()
-	}
-
-	retError = nil
-	newValue, err = c.Get(1)
-	if err != nil {
-		t.FailNow()
-	}
-	if newValue == value {
-		t.FailNow()
+	if assert.NoError(t, err) {
+		// 缓存过期，查询出错，返回过期的缓存
+		time.Sleep(time.Nanosecond * 2)
+		returnErr = testError
+		newValue, err := c.Get(1)
+		if assert.Equal(t, testError, err) {
+			if assert.Equal(t, value, newValue) {
+				// 错误排除，返回新的正常数据
+				returnErr = nil
+				newValue, err = c.Get(1)
+				assert.NoError(t, err)
+				assert.NotEqual(t, value, newValue)
+			}
+		}
 	}
 }
