@@ -6,6 +6,8 @@ package lrucache
 import (
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestListMap_PushBack(t *testing.T) {
@@ -17,21 +19,13 @@ func TestListMap_PushBack(t *testing.T) {
 	m.PushFront(2, t2)
 
 	v, _ := m.Get(1)
-	if v != t1 {
-		t.Fatal("ListMap::Get error")
-	}
+	assert.Equal(t, t1, v)
 
 	v1, _ := m.Back()
 	v2, _ := m.Front()
-	if t1 != v1 {
-		t.FailNow()
-	}
-	if t2 != v2 {
-		t.FailNow()
-	}
-	if m.Len() != 2 {
-		t.Fatal("ListMap:Len error")
-	}
+	assert.Equal(t, t1, v1)
+	assert.Equal(t, t2, v2)
+	assert.Equal(t, 2, m.Len())
 }
 
 func TestListMap_PopFront(t *testing.T) {
@@ -43,23 +37,15 @@ func TestListMap_PopFront(t *testing.T) {
 	m.PushFront(2, t2)
 
 	v, _ := m.PopFront()
-	if v != t2 {
-		t.Fatal("ListMap::PopFront error")
-	}
+	assert.Equal(t, t2, v)
 
 	v, _ = m.Front()
-	if v != t1 {
-		t.FailNow()
-	}
-	if m.Len() != 1 {
-		t.FailNow()
-	}
+	assert.Equal(t, t1, v)
+	assert.Equal(t, 1, m.Len())
 
 	m.PopFront()
 	m.PopFront()
-	if m.Len() != 0 {
-		t.FailNow()
-	}
+	assert.Equal(t, 0, m.Len())
 }
 
 func TestListMap_MoveToFront(t *testing.T) {
@@ -74,10 +60,6 @@ func TestListMap_MoveToFront(t *testing.T) {
 
 	v1, _ := m.Back()
 	v2, _ := m.Front()
-	if v1 != t2 {
-		t.FailNow()
-	}
-	if v2 != t1 {
-		t.FailNow()
-	}
+	assert.Equal(t, t2, v1)
+	assert.Equal(t, t1, v2)
 }
