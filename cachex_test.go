@@ -136,10 +136,11 @@ func TestCachexGetError(t *testing.T) {
 }
 
 func TestCachexGetConcurrency(t *testing.T) {
+	t.Parallel()
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	routines := 100
+	routines := 500
 	loopTimes := 1000
 	total := int64(0)
 
@@ -166,18 +167,18 @@ func TestCachexGetConcurrency(t *testing.T) {
 
 	var g errgroup.Group
 	for i := 0; i < routines; i++ {
-		g.Go(func() error {
+		t.Run("", func(t *testing.T) {
+			// t.Parallel()
 			for j := 0; j < loopTimes; j++ {
 				value, err := c.Get(j)
 				// t.Log(value, err)
 				if !assert.NoError(t, err) {
-					return err
+					return
 				}
 				if !assert.Equal(t, j, value.(int)) {
-					return errors.New("value missmatch")
+					return
 				}
 			}
-			return nil
 		})
 	}
 

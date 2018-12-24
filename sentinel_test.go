@@ -4,8 +4,10 @@ package cachex
 // 2017-09-02 10:48
 
 import (
-	"testing"
 	"sync"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestSentinel_Wait(t *testing.T) {
@@ -15,7 +17,7 @@ func TestSentinel_Wait(t *testing.T) {
 
 	var mu sync.Mutex
 	var wg sync.WaitGroup
-	for i:=0; i<10; i++ {
+	for i := 0; i < 10; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -32,7 +34,5 @@ func TestSentinel_Wait(t *testing.T) {
 
 	wg.Wait()
 
-	if sum != 10 {
-		t.FailNow()
-	}
+	assert.Equal(t, 10, sum)
 }
