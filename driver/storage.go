@@ -1,0 +1,29 @@
+/*
+ * 存储后端接口
+ *
+ * wencan
+ * 2018-12-26
+ */
+
+package driver
+
+// Storage 存储后端接口
+type Storage interface {
+	// Get 获取缓存的数据。value必须是非nil指针。没找到返回ErrNotFound；数据已经过期返回ErrNotFound或过期数据加ErrExpired
+	Get(key, value interface{}) error
+
+	// Set 缓存数据
+	Set(key, value interface{}) error
+}
+
+// DeletableStorage 支持删除操作的存储后端接口
+type DeletableStorage interface {
+	Storage
+	Del(key interface{}) error
+}
+
+// ClearableStorage 支持清理操作的存储后端接口
+type ClearableStorage interface {
+	Storage
+	Clear() error
+}

@@ -4,8 +4,11 @@ package lrucache
 // 2017-08-31
 
 import (
+	"reflect"
 	"sync"
 	"time"
+
+	"github.com/wencan/cachex/driver"
 )
 
 type cacheEntry struct {
@@ -72,7 +75,11 @@ func (c *LRUCache) Set(key, value interface{}) (err error) {
 }
 
 // Get 获取缓存数据
-func (c *LRUCache) Get(key interface{}) (value interface{}, ok bool, err error) {
+func (c *LRUCache) Get(key, value interface{}) error {
+	if v := reflect.ValueOf(value); v.Kind() != reflect.Ptr || v.IsNil() {
+		panic("value not is non-nil pointer")
+	}
+
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
@@ -86,15 +93,17 @@ func (c *LRUCache) Get(key interface{}) (value interface{}, ok bool, err error) 
 				c.Mapping.MoveToBack(key)
 				// c.Mapping.Pop(key)
 				// c.entryPool.Put(entry)
-				return entry.value, false, nil
+				reflect.ValueOf(value).Elem().Set(reflect.ValueOf(entry.value))
+				return driver.ErrExpired
 			}
 		}
 
 		c.Mapping.MoveToFront(key)
-		return entry.value, true, nil
+		reflect.ValueOf(value).Elem().Set(reflect.ValueOf(entry.value))
+		return nil
 	}
 
-	return nil, false, nil
+	return driver.ErrNotFound
 }
 
 // Remove 删除缓存数据
@@ -109,7 +118,7 @@ func (c *LRUCache) Remove(key interface{}) {
 }
 
 // Del 删除缓存数据
-func (c *LRUCache) Del(key interface{}) (err error) {
+func (c *LRUCache) Del(key interface{}) error {
 	c.Remove(key)
 	return nil
 }
@@ -123,7 +132,7 @@ func (c *LRUCache) Len() int {
 }
 
 // Clear 清空缓存的数据
-func (c *LRUCache) Clear() {
+func (c *LRUCache) Clear() error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
@@ -133,4 +142,5 @@ func (c *LRUCache) Clear() {
 			c.entryPool.Put(entry)
 		}
 	}
+	return nil
 }

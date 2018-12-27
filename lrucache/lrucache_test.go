@@ -8,11 +8,14 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/wencan/cachex/driver"
 )
 
 func TestLRUCacheMaxEntries(t *testing.T) {
+	// 最多缓存10个元素，不过期
 	cache := NewLRUCache(10, 0)
-
+	// 缓存11个元素，将会丢弃第一个
 	for i := 0; i < 11; i++ {
 		err := cache.Set(i, i*i)
 		if !assert.NoError(t, err) {
@@ -20,15 +23,13 @@ func TestLRUCacheMaxEntries(t *testing.T) {
 		}
 	}
 
-	value, ok, err := cache.Get(5)
+	var value int
+	err := cache.Get(5, &value)
 	assert.NoError(t, err)
-	assert.True(t, ok)
 	assert.Equal(t, 5*5, value)
 
-	value, ok, err = cache.Get(0)
-	assert.NoError(t, err)
-	assert.False(t, ok)
-	assert.Nil(t, value)
+	err = cache.Get(0, &value)
+	assert.Equal(t, driver.ErrNotFound, err)
 }
 
 func TestLRUCacheExpire(t *testing.T) {
@@ -41,17 +42,17 @@ func TestLRUCacheExpire(t *testing.T) {
 		return
 	}
 
-	cached, ok, err := cache.Get(value)
+	var cached string
+	err = cache.Get(value, &cached)
 	assert.NoError(t, err)
-	assert.True(t, ok)
 	assert.Equal(t, value, cached)
 
 	time.Sleep(time.Millisecond * 20)
 
-	cached, ok, err = cache.Get(value)
-	assert.NoError(t, err)
-	assert.False(t, ok)
-	assert.Equal(t, value, cached) // 支持StaleWhenError
+	// 支持StaleWhenError
+	err = cache.Get(value, &cached)
+	assert.Equal(t, driver.ErrExpired, err)
+	assert.Equal(t, value, cached)
 }
 
 func TestLRUCacheLength(t *testing.T) {
@@ -83,16 +84,14 @@ func TestLRUCacheDel(t *testing.T) {
 		return
 	}
 
-	cached, ok, err := cache.Get(value)
+	var cached string
+	err = cache.Get(value, &cached)
 	assert.NoError(t, err)
-	assert.True(t, ok)
 	assert.Equal(t, value, cached)
 
 	err = cache.Del(key)
 	assert.NoError(t, err)
 
-	cached, ok, err = cache.Get(value)
-	assert.NoError(t, err)
-	assert.False(t, ok)
-	assert.Nil(t, cached)
+	err = cache.Get(value, &cached)
+	assert.Equal(t, driver.ErrNotFound, err)
 }

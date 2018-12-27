@@ -22,15 +22,21 @@ func TestSentinel_Wait(t *testing.T) {
 		go func() {
 			defer wg.Done()
 
-			value, _ := sentinel.Wait()
+			var value int
+			err := sentinel.Wait(&value)
+			assert.NoError(t, err)
+			assert.Equal(t, 1, value)
 
 			mu.Lock()
 			defer mu.Unlock()
-			sum += value.(int)
+			sum += value
 		}()
 	}
 
-	sentinel.Done(1, nil)
+	err := sentinel.Done(1, nil)
+	if !assert.NoError(t, err) {
+		return
+	}
 
 	wg.Wait()
 

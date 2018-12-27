@@ -5,7 +5,10 @@ package cachex
 
 import (
 	"errors"
+	"reflect"
 	"sync"
+
+	"github.com/wencan/cachex/driver"
 )
 
 var (
@@ -16,50 +19,20 @@ var (
 	ErrNotSupported = errors.New("not supported operation")
 )
 
-// Storage 存储后端接口
-type Storage interface {
-	// Get 获取缓存的数据。 如果返回value != nil && !ok && err == nil，表示返回已经过期的数据
-	Get(key interface{}) (value interface{}, ok bool, err error)
-
-	// Set 缓存数据
-	Set(key, value interface{}) (err error)
-}
-
-// DeletableStorage 支持删除操作的存储后端接口
-type DeletableStorage interface {
-	Storage
-	Del(key interface{}) (err error)
-}
-
-// QueryFunc 查询过程签名
-type QueryFunc func(key interface{}) (value interface{}, ok bool, err error)
-
-// Query 查询过程实现Querier接口
-func (fun QueryFunc) Query(key interface{}) (value interface{}, ok bool, err error) {
-	return fun(key)
-}
-
-// Querier 查询接口
-type Querier interface {
-	Query(key interface{}) (value interface{}, ok bool, err error)
-}
-
 // Cachex 缓存处理类
 type Cachex struct {
-	storage Storage
+	storage driver.Storage
 
-	querier Querier
+	querier driver.Querier
 
 	sentinels sync.Map
 
-	NotFound error
-
-	// UseStale UseStaleWhenError
-	UseStale bool
+	// useStale UseStaleWhenError
+	useStale bool
 }
 
 // NewCachex 新建缓存处理对象
-func NewCachex(storage Storage, querier Querier) (c *Cachex) {
+func NewCachex(storage driver.Storage, querier driver.Querier) (c *Cachex) {
 	c = &Cachex{
 		storage: storage,
 		querier: querier,
@@ -68,20 +41,24 @@ func NewCachex(storage Storage, querier Querier) (c *Cachex) {
 }
 
 // Get 获取
-func (c *Cachex) Get(key interface{}) (value interface{}, err error) {
-	value, ok, err := c.storage.Get(key)
-	if err != nil {
-		return nil, err
-	} else if ok {
-		return value, nil
+func (c *Cachex) Get(key, value interface{}) error {
+	if v := reflect.ValueOf(value); v.Kind() != reflect.Ptr || v.IsNil() {
+		panic("value not is non-nil pointer")
+	}
+
+	err := c.storage.Get(key, value)
+	if err == nil {
+		return nil
+	} else if err == driver.ErrNotFound {
+		// 下面查询
+	} else if err == driver.ErrExpired {
+		// 数据已过期，下面查询
+	} else if err != nil {
+		return err
 	}
 
 	if c.querier == nil {
-		if c.NotFound != nil {
-			return nil, c.NotFound
-		} else {
-			return nil, ErrNotFound
-		}
+		return ErrNotFound
 	}
 
 	// 在一份示例中
@@ -93,52 +70,62 @@ func (c *Cachex) Get(key interface{}) (value interface{}, err error) {
 		newSentinel.Destroy()
 	}
 
+	// 双重检查
 	var staled interface{}
-	value, ok, err = c.storage.Get(key) // 双重检查
-	if err != nil {
-		return nil, err
-	} else if ok {
+	err = c.storage.Get(key, value)
+	if err == nil {
 		if !loaded {
-			sentinel.Done(value, err)
+			// 将结果通知等待的过程
+			sentinel.Done(reflect.ValueOf(value).Elem().Interface(), nil)
 			c.sentinels.Delete(key)
 		}
-		return value, nil
-	} else if value != nil {
-		// 如果返回value != nil && !ok && err == nil，表示返回已经过期的数据
-		staled = value
+		return nil
+	} else if err == nil {
+		return nil
+	} else if err == driver.ErrNotFound {
+		// 下面查询
+	} else if err == driver.ErrExpired {
+		// 保存过期数据，如果下面查询失败，且useStale，返回过期数据
+		staled = reflect.ValueOf(value).Elem().Interface()
+	} else if err != nil {
+		if !loaded {
+			// 将错误通知等待的过程
+			sentinel.Done(nil, err)
+			c.sentinels.Delete(key)
+		}
+		return err
 	}
 
 	if !loaded {
-		value, ok, err := c.querier.Query(key)
-		if err != nil && c.UseStale && staled != nil {
+		err := c.querier.Query(key, value)
+		if err != nil && c.useStale && staled != nil {
 			// 当查询发生错误时，使用过期的缓存数据。该特性需要Storage支持
+			reflect.ValueOf(value).Elem().Set(reflect.ValueOf(staled))
+
 			sentinel.Done(staled, err)
 			c.sentinels.Delete(key)
-			return staled, err
+			return err
 		}
 
-		if err == nil && !ok {
-			if c.NotFound != nil {
-				err = c.NotFound
-			} else {
-				err = ErrNotFound
-			}
+		if err == driver.ErrNotFound {
+			err = ErrNotFound
 		}
 		if err != nil {
-			sentinel.Done(value, err)
+			sentinel.Done(nil, err)
 			c.sentinels.Delete(key)
-			return nil, err
+			return err
 		}
 
-		err = c.storage.Set(key, value)
+		elem := reflect.ValueOf(value).Elem().Interface()
+		err = c.storage.Set(key, elem)
 
-		sentinel.Done(value, nil)
+		sentinel.Done(elem, nil)
 		c.sentinels.Delete(key)
 
-		return value, err
-	} else {
-		return sentinel.Wait()
+		return err
 	}
+
+	return sentinel.Wait(value)
 }
 
 // Set 更新
@@ -148,7 +135,7 @@ func (c *Cachex) Set(key, value interface{}) (err error) {
 
 // Del 删除
 func (c *Cachex) Del(key interface{}) (err error) {
-	s, ok := c.storage.(DeletableStorage)
+	s, ok := c.storage.(driver.DeletableStorage)
 	if ok {
 		s.Del(key)
 	}
@@ -157,5 +144,5 @@ func (c *Cachex) Del(key interface{}) (err error) {
 
 // UseStaleWhenError 设置当查询发生错误时，使用过期的缓存数据。该特性需要Storage支持（Get返回并继续暂存过期的缓存数据）。默认关闭。
 func (c *Cachex) UseStaleWhenError(use bool) {
-	c.UseStale = use
+	c.useStale = use
 }
