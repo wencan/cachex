@@ -27,6 +27,9 @@ func (Expired) Error() string {
 	return "expired"
 }
 
+var notFound = NotFound{}
+var expired = Expired{}
+
 type cacheEntry struct {
 	value   interface{}
 	created time.Time
@@ -110,7 +113,7 @@ func (c *LRUCache) Get(key, value interface{}) error {
 				// c.Mapping.Pop(key)
 				// c.entryPool.Put(entry)
 				reflect.ValueOf(value).Elem().Set(reflect.ValueOf(entry.value))
-				return Expired{}
+				return expired
 			}
 		}
 
@@ -119,7 +122,7 @@ func (c *LRUCache) Get(key, value interface{}) error {
 		return nil
 	}
 
-	return NotFound{}
+	return notFound
 }
 
 // Remove 删除缓存数据
