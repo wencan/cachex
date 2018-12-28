@@ -7,9 +7,25 @@ import (
 	"reflect"
 	"sync"
 	"time"
-
-	"github.com/wencan/cachex/driver"
 )
+
+// NotFound 没找到错误
+type NotFound struct{}
+
+// NotFound 实现cachex.NotFound错误接口
+func (NotFound) NotFound() {}
+func (NotFound) Error() string {
+	return "not found"
+}
+
+// Expired 数据已过期错误
+type Expired struct{}
+
+// Expired 实现cachex.Expired错误接口
+func (Expired) Expired() {}
+func (Expired) Error() string {
+	return "expired"
+}
 
 type cacheEntry struct {
 	value   interface{}
@@ -94,7 +110,7 @@ func (c *LRUCache) Get(key, value interface{}) error {
 				// c.Mapping.Pop(key)
 				// c.entryPool.Put(entry)
 				reflect.ValueOf(value).Elem().Set(reflect.ValueOf(entry.value))
-				return driver.ErrExpired
+				return Expired{}
 			}
 		}
 
@@ -103,7 +119,7 @@ func (c *LRUCache) Get(key, value interface{}) error {
 		return nil
 	}
 
-	return driver.ErrNotFound
+	return NotFound{}
 }
 
 // Remove 删除缓存数据

@@ -5,7 +5,7 @@
  * 2018-12-26
  */
 
-package driver
+package cachex
 
 // QueryFunc 查询过程签名
 type QueryFunc func(key, value interface{}) error
@@ -17,6 +17,6 @@ func (fun QueryFunc) Query(key, value interface{}) error {
 
 // Querier 查询接口
 type Querier interface {
-	// Query 查询。value必须是非nil指针。没找到返回ErrNotFound
+	// Query 查询。value必须是非nil指针。没找到返回Expired
 	Query(key, value interface{}) error
 }

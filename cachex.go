@@ -7,8 +7,6 @@ import (
 	"errors"
 	"reflect"
 	"sync"
-
-	"github.com/wencan/cachex/driver"
 )
 
 var (
@@ -21,9 +19,9 @@ var (
 
 // Cachex 缓存处理类
 type Cachex struct {
-	storage driver.Storage
+	storage Storage
 
-	querier driver.Querier
+	querier Querier
 
 	sentinels sync.Map
 
@@ -32,7 +30,7 @@ type Cachex struct {
 }
 
 // NewCachex 新建缓存处理对象
-func NewCachex(storage driver.Storage, querier driver.Querier) (c *Cachex) {
+func NewCachex(storage Storage, querier Querier) (c *Cachex) {
 	c = &Cachex{
 		storage: storage,
 		querier: querier,
@@ -49,9 +47,9 @@ func (c *Cachex) Get(key, value interface{}) error {
 	err := c.storage.Get(key, value)
 	if err == nil {
 		return nil
-	} else if err == driver.ErrNotFound {
+	} else if _, ok := err.(NotFound); ok {
 		// 下面查询
-	} else if err == driver.ErrExpired {
+	} else if _, ok := err.(Expired); ok {
 		// 数据已过期，下面查询
 	} else if err != nil {
 		return err
@@ -82,9 +80,9 @@ func (c *Cachex) Get(key, value interface{}) error {
 		return nil
 	} else if err == nil {
 		return nil
-	} else if err == driver.ErrNotFound {
+	} else if _, ok := err.(NotFound); ok {
 		// 下面查询
-	} else if err == driver.ErrExpired {
+	} else if _, ok := err.(Expired); ok {
 		// 保存过期数据，如果下面查询失败，且useStale，返回过期数据
 		staled = reflect.ValueOf(value).Elem().Interface()
 	} else if err != nil {
@@ -107,7 +105,7 @@ func (c *Cachex) Get(key, value interface{}) error {
 			return err
 		}
 
-		if err == driver.ErrNotFound {
+		if _, ok := err.(NotFound); ok {
 			err = ErrNotFound
 		}
 		if err != nil {
@@ -135,7 +133,7 @@ func (c *Cachex) Set(key, value interface{}) (err error) {
 
 // Del 删除
 func (c *Cachex) Del(key interface{}) (err error) {
-	s, ok := c.storage.(driver.DeletableStorage)
+	s, ok := c.storage.(DeletableStorage)
 	if ok {
 		s.Del(key)
 	}

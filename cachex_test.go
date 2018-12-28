@@ -12,8 +12,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/golang/mock/gomock"
-	"github.com/wencan/cachex/driver"
-	"github.com/wencan/cachex/driver/mock_driver"
+	"github.com/wencan/cachex/mock_cachex"
 )
 
 func init() {
@@ -24,8 +23,9 @@ func TestCachexGet(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	notFound := mock_cachex.NewMockNotFound(ctrl)
 	cached := make(map[interface{}]interface{})
-	mockStorage := mock_driver.NewMockStorage(ctrl)
+	mockStorage := mock_cachex.NewMockStorage(ctrl)
 	mockStorage.EXPECT().Set(gomock.Any(), gomock.Any()).DoAndReturn(func(key, value interface{}) error {
 		cached[key] = value
 		return nil
@@ -33,14 +33,14 @@ func TestCachexGet(t *testing.T) {
 	mockStorage.EXPECT().Get(gomock.AssignableToTypeOf(1), gomock.Any()).DoAndReturn(func(key, value interface{}) error {
 		v, exist := cached[key]
 		if !exist {
-			return driver.ErrNotFound
+			return notFound
 		}
 		reflect.ValueOf(value).Elem().Set(reflect.ValueOf(v))
 		return nil
 	}).AnyTimes()
 
 	queried := make(map[interface{}]interface{})
-	mockQuery := mock_driver.NewMockQuerier(ctrl)
+	mockQuery := mock_cachex.NewMockQuerier(ctrl)
 	mockQuery.EXPECT().Query(gomock.AssignableToTypeOf(1), gomock.Any()).DoAndReturn(func(key, value interface{}) error {
 		num := key.(int)
 		result, ok := queried[num]
@@ -79,9 +79,10 @@ func TestCachexExpired(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	notFound := mock_cachex.NewMockNotFound(ctrl)
 	cached := make(map[interface{}]interface{})
 	expires := make(map[interface{}]int64)
-	mockStorage := mock_driver.NewMockStorage(ctrl)
+	mockStorage := mock_cachex.NewMockStorage(ctrl)
 	mockStorage.EXPECT().Set(gomock.Any(), gomock.Any()).DoAndReturn(func(key, value interface{}) error {
 		cached[key] = value
 		expires[key] = time.Now().UnixNano() + 1000*1000*100 // 0.1秒
@@ -92,11 +93,11 @@ func TestCachexExpired(t *testing.T) {
 			reflect.ValueOf(value).Elem().Set(reflect.ValueOf(cached[key]))
 			return nil
 		}
-		return driver.ErrNotFound
+		return notFound
 	}).AnyTimes()
 
 	base := 1
-	mockQuery := mock_driver.NewMockQuerier(ctrl)
+	mockQuery := mock_cachex.NewMockQuerier(ctrl)
 	mockQuery.EXPECT().Query(gomock.AssignableToTypeOf(1), gomock.Any()).DoAndReturn(func(key, value interface{}) error {
 		num := key.(int)
 		result := num * base
@@ -134,15 +135,16 @@ func TestCachexGetError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockStorage := mock_driver.NewMockStorage(ctrl)
+	notFound := mock_cachex.NewMockNotFound(ctrl)
+	mockStorage := mock_cachex.NewMockStorage(ctrl)
 	mockStorage.EXPECT().Set(gomock.Eq(storageSetErr), gomock.Any()).Return(storageSetErr).AnyTimes()
 	mockStorage.EXPECT().Set(gomock.Not(gomock.Eq(storageSetErr)), gomock.Any()).Return(nil).AnyTimes()
-	mockStorage.EXPECT().Get(gomock.Eq(storageSetErr), gomock.Any()).Return(driver.ErrNotFound).AnyTimes()
-	mockStorage.EXPECT().Get(gomock.Eq(queryQueryErr), gomock.Any()).Return(driver.ErrNotFound).AnyTimes()
+	mockStorage.EXPECT().Get(gomock.Eq(storageSetErr), gomock.Any()).Return(notFound).AnyTimes()
+	mockStorage.EXPECT().Get(gomock.Eq(queryQueryErr), gomock.Any()).Return(notFound).AnyTimes()
 	mockStorage.EXPECT().Get(gomock.Eq(storageGetErr), gomock.Any()).Return(storageGetErr).AnyTimes()
 	mockStorage.EXPECT().Get(gomock.Not(gomock.Eq(storageGetErr)), gomock.Any()).Return(nil).AnyTimes()
 
-	mockQuery := mock_driver.NewMockQuerier(ctrl)
+	mockQuery := mock_cachex.NewMockQuerier(ctrl)
 	mockQuery.EXPECT().Query(gomock.Eq(queryQueryErr), gomock.Any()).Return(queryQueryErr).AnyTimes()
 	mockQuery.EXPECT().Query(gomock.Not(gomock.Eq(queryQueryErr)), gomock.Any()).Return(nil).AnyTimes()
 
@@ -166,8 +168,9 @@ func TestCachexGetConcurrency(t *testing.T) {
 	loopTimes := 1000
 	total := int64(0)
 
+	notFound := mock_cachex.NewMockNotFound(ctrl)
 	cached := make(map[interface{}]interface{})
-	mockStorage := mock_driver.NewMockStorage(ctrl)
+	mockStorage := mock_cachex.NewMockStorage(ctrl)
 	mockStorage.EXPECT().Set(gomock.Any(), gomock.Any()).DoAndReturn(func(key, value interface{}) error {
 		cached[key] = value
 		return nil
@@ -177,10 +180,10 @@ func TestCachexGetConcurrency(t *testing.T) {
 			reflect.ValueOf(value).Elem().Set(reflect.ValueOf(result))
 			return nil
 		}
-		return driver.ErrNotFound
+		return notFound
 	}).AnyTimes()
 
-	mockQuery := mock_driver.NewMockQuerier(ctrl)
+	mockQuery := mock_cachex.NewMockQuerier(ctrl)
 	mockQuery.EXPECT().Query(gomock.AssignableToTypeOf(1), gomock.Any()).DoAndReturn(func(key, value interface{}) error {
 		atomic.AddInt64(&total, 1)
 		reflect.ValueOf(value).Elem().Set(reflect.ValueOf(key))
@@ -216,9 +219,11 @@ func TestCachex_UseStaleWhenError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	notFound := mock_cachex.NewMockNotFound(ctrl)
+	expired := mock_cachex.NewMockExpired(ctrl)
 	cached := make(map[interface{}]interface{})
 	expires := make(map[interface{}]int64)
-	mockStorage := mock_driver.NewMockStorage(ctrl)
+	mockStorage := mock_cachex.NewMockStorage(ctrl)
 	mockStorage.EXPECT().Set(gomock.Any(), gomock.Any()).DoAndReturn(func(key, value interface{}) error {
 		cached[key] = value
 		expires[key] = time.Now().UnixNano() + int64(time.Nanosecond*2)
@@ -227,21 +232,21 @@ func TestCachex_UseStaleWhenError(t *testing.T) {
 	mockStorage.EXPECT().Get(gomock.AssignableToTypeOf(1), gomock.Any()).DoAndReturn(func(key, value interface{}) error {
 		result, exist := cached[key]
 		if !exist {
-			return driver.ErrNotFound
+			return notFound
 		}
 		expire, _ := expires[key]
 
 		reflect.ValueOf(value).Elem().Set(reflect.ValueOf(result))
 		if expire <= time.Now().UnixNano() {
 			// 已过期
-			return driver.ErrExpired
+			return expired
 		}
 		return nil
 	}).AnyTimes()
 
 	var testError = errors.New("test")
 	var returnErr error
-	mockQuery := mock_driver.NewMockQuerier(ctrl)
+	mockQuery := mock_cachex.NewMockQuerier(ctrl)
 	mockQuery.EXPECT().Query(gomock.AssignableToTypeOf(1), gomock.Any()).DoAndReturn(func(key, value interface{}) error {
 		if returnErr != nil {
 			return returnErr

@@ -8,8 +8,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-
-	"github.com/wencan/cachex/driver"
+	"github.com/wencan/cachex"
 )
 
 func TestLRUCacheMaxEntries(t *testing.T) {
@@ -29,7 +28,7 @@ func TestLRUCacheMaxEntries(t *testing.T) {
 	assert.Equal(t, 5*5, value)
 
 	err = cache.Get(0, &value)
-	assert.Equal(t, driver.ErrNotFound, err)
+	assert.Implements(t, (*cachex.NotFound)(nil), err)
 }
 
 func TestLRUCacheExpire(t *testing.T) {
@@ -51,7 +50,7 @@ func TestLRUCacheExpire(t *testing.T) {
 
 	// 支持StaleWhenError
 	err = cache.Get(value, &cached)
-	assert.Equal(t, driver.ErrExpired, err)
+	assert.Implements(t, (*cachex.Expired)(nil), err)
 	assert.Equal(t, value, cached)
 }
 
@@ -93,5 +92,5 @@ func TestLRUCacheDel(t *testing.T) {
 	assert.NoError(t, err)
 
 	err = cache.Get(value, &cached)
-	assert.Equal(t, driver.ErrNotFound, err)
+	assert.Equal(t, NotFound{}, err)
 }
