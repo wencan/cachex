@@ -62,7 +62,7 @@ func NewLRUCache(maxEntries int, TTL time.Duration) *LRUCache {
 }
 
 // Set 设置缓存数据
-func (c *LRUCache) Set(key, value interface{}) (err error) {
+func (c *LRUCache) Set(key, value interface{}) error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 

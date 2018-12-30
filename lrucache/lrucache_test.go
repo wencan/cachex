@@ -11,6 +11,11 @@ import (
 	"github.com/wencan/cachex"
 )
 
+func TestLRUCache(t *testing.T) {
+	cache := NewLRUCache(10, 0)
+	assert.Implements(t, (*cachex.Storage)(nil), cache)
+}
+
 func TestLRUCacheMaxEntries(t *testing.T) {
 	// 最多缓存10个元素，不过期
 	cache := NewLRUCache(10, 0)
