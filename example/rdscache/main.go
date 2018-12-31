@@ -14,9 +14,9 @@ import (
 )
 
 type DateTime struct {
-	Date string `db:"date"`
-	Time string `db:"time"`
-	Rand int    `db:"rand"`
+	Date string `db:"date" msgpack:"d"`
+	Time string `db:"time" msgpack:"t"`
+	Rand int    `db:"rand" msgpack:"r"`
 }
 
 func main() {
