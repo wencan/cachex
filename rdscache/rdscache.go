@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/gomodule/redigo/redis"
@@ -40,6 +41,8 @@ var notFound = NotFound{}
 type RdsCache struct {
 	rdsPool *redis.Pool
 
+	keyPrefix string
+
 	ttlMilliseconds int
 }
 
@@ -61,6 +64,8 @@ type RdsConfig struct {
 	opt *redis.DialOption
 
 	poolCfg *PoolConfig
+
+	keyPrefix string
 
 	ttl time.Duration
 }
@@ -103,10 +108,18 @@ func RdsTTL(ttl time.Duration) RdsConfig {
 	}
 }
 
+// RdsKeyPrefix redis key前缀
+func RdsKeyPrefix(keyPrefix string) RdsConfig {
+	return RdsConfig{
+		keyPrefix: keyPrefix,
+	}
+}
+
 // NewRdsCache 创建redis缓存对象
 func NewRdsCache(network, address string, rdsCfgs ...RdsConfig) *RdsCache {
 	var opts []redis.DialOption
 	var poolCfg *PoolConfig
+	var keyPrefix string
 	var ttl time.Duration
 
 	for _, c := range rdsCfgs {
@@ -115,6 +128,9 @@ func NewRdsCache(network, address string, rdsCfgs ...RdsConfig) *RdsCache {
 		}
 		if c.poolCfg != nil {
 			poolCfg = c.poolCfg
+		}
+		if c.keyPrefix != "" {
+			keyPrefix = c.keyPrefix
 		}
 		if c.ttl != 0 {
 			ttl = c.ttl
@@ -136,23 +152,29 @@ func NewRdsCache(network, address string, rdsCfgs ...RdsConfig) *RdsCache {
 
 	return &RdsCache{
 		rdsPool:         rdsPool,
+		keyPrefix:       keyPrefix,
 		ttlMilliseconds: int(ttl / time.Millisecond),
 	}
 }
 
-// stringKey 将interface{} key转为字符串，不支持类型返回错误
-func stringKey(key interface{}) (string, error) {
+// stringKey 将interface{} key转为字符串并加上前缀，不支持类型返回错误
+func (c *RdsCache) stringKey(key interface{}) (string, error) {
 	switch key.(type) {
 	case string, []byte, int, int32, int64, uint, uint32, uint64, float32, float64, bool:
 	default:
 		return "", errors.New("key type is unacceptable")
 	}
-	return fmt.Sprint(key), nil
+	skey := fmt.Sprint(key)
+
+	if c.keyPrefix != "" {
+		skey = strings.Join([]string{c.keyPrefix, skey}, ":")
+	}
+	return skey, nil
 }
 
 // Set 设置缓存数据
 func (c *RdsCache) Set(key, value interface{}) error {
-	skey, err := stringKey(key)
+	skey, err := c.stringKey(key)
 	if err != nil {
 		return err
 	}
@@ -170,7 +192,7 @@ func (c *RdsCache) Set(key, value interface{}) error {
 		return err
 	}
 	if c.ttlMilliseconds != 0 {
-		_, err = conn.Do("EXPIRE", skey, c.ttlMilliseconds)
+		_, err = conn.Do("PEXPIRE", skey, c.ttlMilliseconds)
 		if err != nil {
 			return err
 		}
@@ -181,7 +203,7 @@ func (c *RdsCache) Set(key, value interface{}) error {
 
 // Get 获取缓存数据
 func (c *RdsCache) Get(key, value interface{}) error {
-	skey, err := stringKey(key)
+	skey, err := c.stringKey(key)
 	if err != nil {
 		return err
 	}
@@ -205,7 +227,7 @@ func (c *RdsCache) Get(key, value interface{}) error {
 
 // Del 删除缓存数据
 func (c *RdsCache) Del(key interface{}) error {
-	skey, err := stringKey(key)
+	skey, err := c.stringKey(key)
 	if err != nil {
 		return err
 	}
