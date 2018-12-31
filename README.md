@@ -1,5 +1,5 @@
 # cachex
-Go业务层缓存，自带内存LRU存储,支持自定义Redis存储实现
+Go业务层缓存中间件，自带内存LRU存储和Redis存储，并支持自定义存储后端
 
 # Example
 ```go
