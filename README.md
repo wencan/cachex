@@ -2,7 +2,6 @@
 Go业务层缓存，自带内存LRU存储,支持自定义Redis存储实现
 
 # Example
-### memory lrucache
 ```go
 query := func(key, value interface{}) error {
 	dt := value.(*DateTime)
@@ -15,6 +14,7 @@ query := func(key, value interface{}) error {
 }
 
 s := lrucache.NewLRUCache(1000, time.Second)
+// or s := rdscache.NewRdsCache("tcp", rds.Addr(), rdscache.RdsDB(1), rdscache.RdsKeyPrefix("cache"))
 cache := cachex.NewCachex(s, cachex.QueryFunc(query))
 
 var dt DateTime
