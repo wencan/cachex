@@ -118,3 +118,29 @@ func TestRdsCacheKeyPrefix(t *testing.T) {
 		assert.NoError(t, err)
 	}
 }
+
+type testStringer struct {
+	SKey string
+}
+
+func (stringer testStringer) String() string {
+	return stringer.SKey
+}
+
+func TestRdsCacheStringerKey(t *testing.T) {
+	s, err := miniredis.Run()
+	if err != nil {
+		panic(err)
+	}
+	defer s.Close()
+
+	cache := NewRdsCache("tcp", s.Addr(), RdsDB(1))
+	assert.Implements(t, (*cachex.Storage)(nil), cache)
+
+	exists := testStringer{SKey: "exists"}
+	err = cache.Set(exists, "exists")
+	if assert.NoError(t, err) {
+		_, err := s.DB(1).Get(exists.String())
+		assert.NoError(t, err)
+	}
+}

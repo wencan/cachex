@@ -159,12 +159,15 @@ func NewRdsCache(network, address string, rdsCfgs ...RdsConfig) *RdsCache {
 
 // stringKey 将interface{} key转为字符串并加上前缀，不支持类型返回错误
 func (c *RdsCache) stringKey(key interface{}) (string, error) {
-	switch key.(type) {
+	var skey string
+	switch t := key.(type) {
+	case fmt.Stringer:
+		skey = t.String()
 	case string, []byte, int, int32, int64, uint, uint32, uint64, float32, float64, bool:
+		skey = fmt.Sprint(key)
 	default:
 		return "", errors.New("key type is unacceptable")
 	}
-	skey := fmt.Sprint(key)
 
 	if c.keyPrefix != "" {
 		skey = strings.Join([]string{c.keyPrefix, skey}, ":")
