@@ -17,6 +17,6 @@ func (fun QueryFunc) Query(key, value interface{}) error {
 
 // Querier 查询接口
 type Querier interface {
-	// Query 查询。value必须是非nil指针。没找到返回Expired
+	// Query 查询。value必须是非nil指针。没找到返回NotFound错误实现
 	Query(key, value interface{}) error
 }

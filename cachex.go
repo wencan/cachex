@@ -65,7 +65,7 @@ func (c *Cachex) Get(key, value interface{}) error {
 		return ErrNotFound
 	}
 
-	// 在一份示例中
+	// 在一份实例中
 	// 不同时发起重复的查询请求——解决缓存失效风暴
 	newSentinel := NewSentinel()
 	actual, loaded := c.sentinels.LoadOrStore(key, newSentinel)
@@ -153,7 +153,7 @@ func (c *Cachex) Del(key interface{}) error {
 	return ErrNotSupported
 }
 
-// UseStaleWhenError 设置当查询发生错误时，使用过期的缓存数据。该特性需要Storage支持（Get返回并继续暂存过期的缓存数据）。默认关闭。
+// UseStaleWhenError 设置当查询发生错误时，使用过期的缓存数据。该特性需要Storage支持（Get返回过期的缓存数据和Expired错误实现）。默认关闭。
 func (c *Cachex) UseStaleWhenError(use bool) {
 	c.useStale = use
 }

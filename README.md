@@ -90,7 +90,7 @@ Del 删除
 ```go
 func (c *Cachex) UseStaleWhenError(use bool)
 ```
-UseStaleWhenError 设置当查询发生错误时，使用过期的缓存数据。该特性需要Storage支持（Get返回并继续暂存过期的缓存数据）。默认关闭。
+UseStaleWhenError 设置当查询发生错误时，使用过期的缓存数据。该特性需要Storage支持（Get返回过期的缓存数据和Expired错误实现）。默认关闭。
 
 #### type Querier
 
@@ -125,7 +125,7 @@ Query 查询过程实现Querier接口
 ```go
 func NewLRUCache(maxEntries int, TTL time.Duration) *LRUCache
 ```
-NewLRUCache 新建本地LRU缓存类
+NewLRUCache 新建本地LRU缓存
 
 ## cachex/rdscache API
 
@@ -224,4 +224,4 @@ RdsPoolConfig redis连接池配置对象
 ```go
 func RdsDefaultTTL(ttl time.Duration) RdsConfig
 ```
-RdsDefaultTTL redis key生存时间
+RdsDefaultTTL 默认redis key生存时间
