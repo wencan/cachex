@@ -31,14 +31,14 @@ var notFound = NotFound{}
 var expired = Expired{}
 
 type cacheEntry struct {
-	value   interface{}
-	created time.Time
+	value      interface{}
+	expireTime time.Time
 }
 
 // LRUCache 本地LRU缓存类，实现了cachex.DeletableStorage接口
 type LRUCache struct {
 	MaxEntries int
-	TTL        time.Duration
+	defaultTTL time.Duration
 
 	Mapping *ListMap
 
@@ -48,10 +48,10 @@ type LRUCache struct {
 }
 
 // NewLRUCache 新建本地LRU缓存类
-func NewLRUCache(maxEntries int, TTL time.Duration) *LRUCache {
+func NewLRUCache(maxEntries int, defaultTTL time.Duration) *LRUCache {
 	return &LRUCache{
 		MaxEntries: maxEntries,
-		TTL:        TTL,
+		defaultTTL: defaultTTL,
 		Mapping:    NewListMap(),
 		entryPool: sync.Pool{
 			New: func() interface{} {
@@ -63,6 +63,11 @@ func NewLRUCache(maxEntries int, TTL time.Duration) *LRUCache {
 
 // Set 设置缓存数据
 func (c *LRUCache) Set(key, value interface{}) error {
+	return c.SetWithTTL(key, value, c.defaultTTL)
+}
+
+// SetWithTTL 设置缓存数据，并定制TTL
+func (c *LRUCache) SetWithTTL(key, value interface{}, TTL time.Duration) error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
@@ -70,13 +75,13 @@ func (c *LRUCache) Set(key, value interface{}) error {
 	if ok {
 		entry := item.(*cacheEntry)
 		entry.value = value
-		entry.created = time.Now()
+		entry.expireTime = time.Now().Add(TTL)
 
 		c.Mapping.MoveToFront(key)
 	} else {
 		entry := c.entryPool.Get().(*cacheEntry)
 		entry.value = value
-		entry.created = time.Now()
+		entry.expireTime = time.Now().Add(TTL)
 
 		c.Mapping.PushFront(key, entry)
 
@@ -105,8 +110,8 @@ func (c *LRUCache) Get(key, value interface{}) error {
 	item, ok := c.Mapping.Get(key)
 	if ok {
 		entry := item.(*cacheEntry)
-		if c.TTL != 0 {
-			if time.Now().Sub(entry.created) >= c.TTL {
+		if c.defaultTTL != 0 {
+			if time.Now().After(entry.expireTime) {
 				// 将过期数据移到队列后方，而不是删除
 				// 如果查询出错，还可能使用保留的过期数据
 				c.Mapping.MoveToBack(key)

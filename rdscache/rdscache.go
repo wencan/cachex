@@ -43,7 +43,7 @@ type RdsCache struct {
 
 	keyPrefix string
 
-	ttlMilliseconds int
+	defaultTTL time.Duration
 }
 
 // PoolConfig redis连接池配置
@@ -67,7 +67,7 @@ type RdsConfig struct {
 
 	keyPrefix string
 
-	ttl time.Duration
+	DefaultTTL time.Duration
 }
 
 // RdsDial redis连接函数
@@ -101,10 +101,10 @@ func RdsPoolConfig(poolCfg PoolConfig) RdsConfig {
 	}
 }
 
-// RdsTTL redis key生存时间
-func RdsTTL(ttl time.Duration) RdsConfig {
+// RdsDefaultTTL 默认redis key生存时间
+func RdsDefaultTTL(defaultTTL time.Duration) RdsConfig {
 	return RdsConfig{
-		ttl: ttl,
+		DefaultTTL: defaultTTL,
 	}
 }
 
@@ -120,7 +120,7 @@ func NewRdsCache(network, address string, rdsCfgs ...RdsConfig) *RdsCache {
 	var opts []redis.DialOption
 	var poolCfg *PoolConfig
 	var keyPrefix string
-	var ttl time.Duration
+	var defaultTTL time.Duration
 
 	for _, c := range rdsCfgs {
 		if c.opt != nil {
@@ -132,8 +132,8 @@ func NewRdsCache(network, address string, rdsCfgs ...RdsConfig) *RdsCache {
 		if c.keyPrefix != "" {
 			keyPrefix = c.keyPrefix
 		}
-		if c.ttl != 0 {
-			ttl = c.ttl
+		if c.DefaultTTL != 0 {
+			defaultTTL = c.DefaultTTL
 		}
 	}
 
@@ -151,9 +151,9 @@ func NewRdsCache(network, address string, rdsCfgs ...RdsConfig) *RdsCache {
 	}
 
 	return &RdsCache{
-		rdsPool:         rdsPool,
-		keyPrefix:       keyPrefix,
-		ttlMilliseconds: int(ttl / time.Millisecond),
+		rdsPool:    rdsPool,
+		keyPrefix:  keyPrefix,
+		defaultTTL: defaultTTL,
 	}
 }
 
@@ -177,6 +177,11 @@ func (c *RdsCache) stringKey(key interface{}) (string, error) {
 
 // Set 设置缓存数据
 func (c *RdsCache) Set(key, value interface{}) error {
+	return c.SetWithTTL(key, value, c.defaultTTL)
+}
+
+// SetWithTTL 设置缓存数据，并定制TTL
+func (c *RdsCache) SetWithTTL(key, value interface{}, TTL time.Duration) error {
 	skey, err := c.stringKey(key)
 	if err != nil {
 		return err
@@ -194,8 +199,8 @@ func (c *RdsCache) Set(key, value interface{}) error {
 	if err != nil {
 		return err
 	}
-	if c.ttlMilliseconds != 0 {
-		_, err = conn.Do("PEXPIRE", skey, c.ttlMilliseconds)
+	if TTL != 0 {
+		_, err = conn.Do("PEXPIRE", skey, int(TTL/time.Millisecond))
 		if err != nil {
 			return err
 		}

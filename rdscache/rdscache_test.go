@@ -43,7 +43,7 @@ func TestRdsCacheExpire(t *testing.T) {
 	}
 	defer s.Close()
 
-	cache := NewRdsCache("tcp", s.Addr(), RdsDB(1), RdsTTL(time.Millisecond*100))
+	cache := NewRdsCache("tcp", s.Addr(), RdsDB(1), RdsDefaultTTL(time.Millisecond*100))
 	assert.Implements(t, (*cachex.Storage)(nil), cache)
 
 	err = cache.Set("exists", "exists")
@@ -68,7 +68,7 @@ func TestRdsCacheDel(t *testing.T) {
 	}
 	defer s.Close()
 
-	cache := NewRdsCache("tcp", s.Addr(), RdsDB(1), RdsTTL(time.Millisecond*100))
+	cache := NewRdsCache("tcp", s.Addr(), RdsDB(1), RdsDefaultTTL(time.Millisecond*100))
 	assert.Implements(t, (*cachex.Storage)(nil), cache)
 
 	err = cache.Set("exists", "exists")

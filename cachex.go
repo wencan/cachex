@@ -7,6 +7,7 @@ import (
 	"errors"
 	"reflect"
 	"sync"
+	"time"
 )
 
 var (
@@ -27,6 +28,9 @@ type Cachex struct {
 
 	// useStale UseStaleWhenError
 	useStale bool
+
+	deletableStorage   DeletableStorage
+	withTTLableStorage SetWithTTLableStorage
 }
 
 // NewCachex 新建缓存处理对象
@@ -35,6 +39,8 @@ func NewCachex(storage Storage, querier Querier) (c *Cachex) {
 		storage: storage,
 		querier: querier,
 	}
+	c.deletableStorage, _ = storage.(DeletableStorage)
+	c.withTTLableStorage, _ = storage.(SetWithTTLableStorage)
 	return c
 }
 
@@ -131,11 +137,18 @@ func (c *Cachex) Set(key, value interface{}) (err error) {
 	return c.storage.Set(key, value)
 }
 
+// SetWithTTL 设置缓存数据，并定制TTL
+func (c *Cachex) SetWithTTL(key, value interface{}, TTL time.Duration) error {
+	if c.withTTLableStorage != nil {
+		c.withTTLableStorage.SetWithTTL(key, value, TTL)
+	}
+	return ErrNotSupported
+}
+
 // Del 删除
 func (c *Cachex) Del(key interface{}) (err error) {
-	s, ok := c.storage.(DeletableStorage)
-	if ok {
-		s.Del(key)
+	if c.deletableStorage != nil {
+		c.deletableStorage.Del(key)
 	}
 	return ErrNotSupported
 }

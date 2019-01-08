@@ -7,6 +7,8 @@
 
 package cachex
 
+import "time"
+
 // Storage 存储后端接口
 type Storage interface {
 	// Get 获取缓存的数据。value必须是非nil指针。没找到返回NotFound；数据已经过期返回过期数据加NotFound
@@ -26,4 +28,10 @@ type DeletableStorage interface {
 type ClearableStorage interface {
 	Storage
 	Clear() error
+}
+
+// SetWithTTLableStorage 支持定制TTL的存储后端接口
+type SetWithTTLableStorage interface {
+	Storage
+	SetWithTTL(key, value interface{}, TTL time.Duration) error
 }

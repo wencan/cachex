@@ -59,6 +59,37 @@ func TestLRUCacheExpire(t *testing.T) {
 	assert.Equal(t, value, cached)
 }
 
+func TestLRUCacheCustomExpire(t *testing.T) {
+	cache := NewLRUCache(0, time.Millisecond*10)
+
+	key := "test"
+	value := "test"
+	err := cache.SetWithTTL(key, value, time.Millisecond*20)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	var cached string
+	err = cache.Get(value, &cached)
+	assert.NoError(t, err)
+	assert.Equal(t, value, cached)
+
+	time.Sleep(time.Millisecond * 15)
+
+	// 尚未过期
+	err = cache.Get(value, &cached)
+	assert.NoError(t, err)
+	assert.Equal(t, value, cached)
+
+	time.Sleep(time.Millisecond * 10)
+
+	// 已经过期
+	// 支持StaleWhenError
+	err = cache.Get(value, &cached)
+	assert.Implements(t, (*cachex.Expired)(nil), err)
+	assert.Equal(t, value, cached)
+}
+
 func TestLRUCacheLength(t *testing.T) {
 	cache := NewLRUCache(10, 0)
 

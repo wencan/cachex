@@ -212,9 +212,9 @@ func RdsPoolConfig(poolCfg PoolConfig) RdsConfig
 ```
 RdsPoolConfig redis连接池配置对象
 
-#### func  RdsTTL
+#### func  RdsDefaultTTL
 
 ```go
-func RdsTTL(ttl time.Duration) RdsConfig
+func RdsDefaultTTL(ttl time.Duration) RdsConfig
 ```
-RdsTTL redis key生存时间
+RdsDefaultTTL redis key生存时间
