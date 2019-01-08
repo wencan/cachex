@@ -70,9 +70,6 @@ func (c *LRUCache) Set(key, value interface{}) error {
 
 // SetWithTTL 设置缓存数据，并定制TTL
 func (c *LRUCache) SetWithTTL(key, value interface{}, TTL time.Duration) error {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-
 	// 深拷贝
 	t := reflect.ValueOf(value)
 	if t.Kind() == reflect.Ptr {
@@ -83,6 +80,9 @@ func (c *LRUCache) SetWithTTL(key, value interface{}, TTL time.Duration) error {
 	if err != nil {
 		return err
 	}
+
+	c.lock.Lock()
+	defer c.lock.Unlock()
 
 	item, ok := c.Mapping.Get(key)
 	if ok {
