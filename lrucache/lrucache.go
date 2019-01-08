@@ -7,6 +7,8 @@ import (
 	"reflect"
 	"sync"
 	"time"
+
+	"github.com/jinzhu/copier"
 )
 
 // NotFound 没找到错误
@@ -71,16 +73,27 @@ func (c *LRUCache) SetWithTTL(key, value interface{}, TTL time.Duration) error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
+	// 深拷贝
+	t := reflect.ValueOf(value)
+	if t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+	saved := reflect.New(t.Type()).Interface()
+	err := copier.Copy(saved, t.Interface())
+	if err != nil {
+		return err
+	}
+
 	item, ok := c.Mapping.Get(key)
 	if ok {
 		entry := item.(*cacheEntry)
-		entry.value = value
+		entry.value = saved
 		entry.expireTime = time.Now().Add(TTL)
 
 		c.Mapping.MoveToFront(key)
 	} else {
 		entry := c.entryPool.Get().(*cacheEntry)
-		entry.value = value
+		entry.value = saved
 		entry.expireTime = time.Now().Add(TTL)
 
 		c.Mapping.PushFront(key, entry)
@@ -117,14 +130,21 @@ func (c *LRUCache) Get(key, value interface{}) error {
 				c.Mapping.MoveToBack(key)
 				// c.Mapping.Pop(key)
 				// c.entryPool.Put(entry)
-				reflect.ValueOf(value).Elem().Set(reflect.ValueOf(entry.value))
+				err := copier.Copy(value, entry.value)
+				if err != nil {
+					return err
+				}
+				// 返回过期数据同时，返回expired错误
 				return expired
 			}
 		}
 
 		c.Mapping.MoveToFront(key)
-		reflect.ValueOf(value).Elem().Set(reflect.ValueOf(entry.value))
-		return nil
+		err := copier.Copy(value, entry.value)
+		if err != nil {
+			return err
+		}
+		return err
 	}
 
 	return notFound
