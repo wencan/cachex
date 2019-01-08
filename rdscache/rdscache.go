@@ -195,15 +195,13 @@ func (c *RdsCache) SetWithTTL(key, value interface{}, TTL time.Duration) error {
 	conn := c.rdsPool.Get()
 	defer conn.Close()
 
-	_, err = conn.Do("SET", skey, data)
+	if TTL != 0 {
+		_, err = conn.Do("SET", skey, data, "NX", "PX", int(TTL/time.Millisecond))
+	} else {
+		_, err = conn.Do("SET", skey, data)
+	}
 	if err != nil {
 		return err
-	}
-	if TTL != 0 {
-		_, err = conn.Do("PEXPIRE", skey, int(TTL/time.Millisecond))
-		if err != nil {
-			return err
-		}
 	}
 
 	return nil
