@@ -67,14 +67,21 @@ Get 获取
 #### func (*Cachex) Set
 
 ```go
-func (c *Cachex) Set(key, value interface{}) (err error)
+func (c *Cachex) Set(key, value interface{}) error
 ```
 Set 更新
+
+#### func (*Cachex) Set
+
+```go
+func (c *Cachex) SetWithTTL(key, value interface{}, TTL time.Duration) error
+```
+SetWithTTL 更新，并定制TTL
 
 #### func (*Cachex) Del
 
 ```go
-func (c *Cachex) Del(key interface{}) (err error)
+func (c *Cachex) Del(key interface{}) error
 ```
 Del 删除
 

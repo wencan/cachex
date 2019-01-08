@@ -133,11 +133,11 @@ func (c *Cachex) Get(key, value interface{}) error {
 }
 
 // Set 更新
-func (c *Cachex) Set(key, value interface{}) (err error) {
+func (c *Cachex) Set(key, value interface{}) error {
 	return c.storage.Set(key, value)
 }
 
-// SetWithTTL 设置缓存数据，并定制TTL
+// SetWithTTL 更新，并定制TTL
 func (c *Cachex) SetWithTTL(key, value interface{}, TTL time.Duration) error {
 	if c.withTTLableStorage != nil {
 		c.withTTLableStorage.SetWithTTL(key, value, TTL)
@@ -146,7 +146,7 @@ func (c *Cachex) SetWithTTL(key, value interface{}, TTL time.Duration) error {
 }
 
 // Del 删除
-func (c *Cachex) Del(key interface{}) (err error) {
+func (c *Cachex) Del(key interface{}) error {
 	if c.deletableStorage != nil {
 		c.deletableStorage.Del(key)
 	}
