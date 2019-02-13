@@ -20,7 +20,7 @@ func TestRdsCache(t *testing.T) {
 	}
 	defer s.Close()
 
-	cache := NewRdsCache("tcp", s.Addr(), RdsDB(1))
+	cache := NewRdsCache("tcp", s.Addr(), &RdsConfig{DB: 1})
 	assert.Implements(t, (*cachex.Storage)(nil), cache)
 
 	err = cache.Set("exists", "exists")
@@ -43,7 +43,7 @@ func TestRdsCacheExpire(t *testing.T) {
 	}
 	defer s.Close()
 
-	cache := NewRdsCache("tcp", s.Addr(), RdsDB(1), RdsDefaultTTL(time.Millisecond*100))
+	cache := NewRdsCache("tcp", s.Addr(), &RdsConfig{DB: 1, DefaultTTL: time.Millisecond * 100})
 	assert.Implements(t, (*cachex.Storage)(nil), cache)
 
 	err = cache.Set("exists", "exists")
@@ -68,7 +68,7 @@ func TestRdsCacheDel(t *testing.T) {
 	}
 	defer s.Close()
 
-	cache := NewRdsCache("tcp", s.Addr(), RdsDB(1), RdsDefaultTTL(time.Millisecond*100))
+	cache := NewRdsCache("tcp", s.Addr(), &RdsConfig{DB: 1, DefaultTTL: time.Millisecond * 100})
 	assert.Implements(t, (*cachex.Storage)(nil), cache)
 
 	err = cache.Set("exists", "exists")
@@ -96,7 +96,7 @@ func TestRdsCacheKeyPrefix(t *testing.T) {
 
 	// 测试无前缀
 
-	cacheWithoutPrefix := NewRdsCache("tcp", s.Addr(), RdsDB(1))
+	cacheWithoutPrefix := NewRdsCache("tcp", s.Addr(), &RdsConfig{DB: 1})
 	assert.Implements(t, (*cachex.Storage)(nil), cacheWithoutPrefix)
 
 	err = cacheWithoutPrefix.Set("exists", "exists-withoutPrefix")
@@ -109,7 +109,7 @@ func TestRdsCacheKeyPrefix(t *testing.T) {
 	s.DB(1).FlushDB()
 	keyPrefix := "prefix"
 
-	cacheWithPrefix := NewRdsCache("tcp", s.Addr(), RdsDB(1), RdsKeyPrefix(keyPrefix))
+	cacheWithPrefix := NewRdsCache("tcp", s.Addr(), &RdsConfig{DB: 1, KeyPrefix: keyPrefix})
 	assert.Implements(t, (*cachex.Storage)(nil), cacheWithPrefix)
 
 	err = cacheWithPrefix.Set("exists", "exists-withPrefix")
@@ -134,7 +134,7 @@ func TestRdsCacheStringerKey(t *testing.T) {
 	}
 	defer s.Close()
 
-	cache := NewRdsCache("tcp", s.Addr(), RdsDB(1))
+	cache := NewRdsCache("tcp", s.Addr(), &RdsConfig{DB: 1})
 	assert.Implements(t, (*cachex.Storage)(nil), cache)
 
 	exists := testStringer{SKey: "exists"}

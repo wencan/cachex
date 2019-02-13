@@ -46,7 +46,10 @@ func main() {
 		return nil
 	}
 
-	s := rdscache.NewRdsCache("tcp", rds.Addr(), rdscache.RdsDB(1), rdscache.RdsKeyPrefix("cache"))
+	s := rdscache.NewRdsCache("tcp", rds.Addr(), &rdscache.RdsConfig{
+		DB:        1,
+		KeyPrefix: "cache",
+	})
 	cache := cachex.NewCachex(s, cachex.QueryFunc(query))
 
 	for {

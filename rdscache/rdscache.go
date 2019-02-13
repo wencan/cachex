@@ -61,79 +61,44 @@ type PoolConfig struct {
 
 // RdsConfig rdscache配置
 type RdsConfig struct {
-	opt *redis.DialOption
+	Dial func(network, addr string) (net.Conn, error)
 
-	poolCfg *PoolConfig
+	DB int
 
-	keyPrefix string
+	Password string
+
+	PoolCfg *PoolConfig
+
+	KeyPrefix string
 
 	DefaultTTL time.Duration
 }
 
-// RdsDial redis连接函数
-func RdsDial(dial func(network, addr string) (net.Conn, error)) RdsConfig {
-	opt := redis.DialNetDial(dial)
-	return RdsConfig{
-		opt: &opt,
-	}
-}
-
-// RdsDB redis db配置
-func RdsDB(db int) RdsConfig {
-	opt := redis.DialDatabase(db)
-	return RdsConfig{
-		opt: &opt,
-	}
-}
-
-// RdsPassword redis密码
-func RdsPassword(password string) RdsConfig {
-	opt := redis.DialPassword(password)
-	return RdsConfig{
-		opt: &opt,
-	}
-}
-
-// RdsPoolConfig redis连接池配置对象
-func RdsPoolConfig(poolCfg PoolConfig) RdsConfig {
-	return RdsConfig{
-		poolCfg: &poolCfg,
-	}
-}
-
-// RdsDefaultTTL 默认redis key生存时间
-func RdsDefaultTTL(defaultTTL time.Duration) RdsConfig {
-	return RdsConfig{
-		DefaultTTL: defaultTTL,
-	}
-}
-
-// RdsKeyPrefix redis key前缀
-func RdsKeyPrefix(keyPrefix string) RdsConfig {
-	return RdsConfig{
-		keyPrefix: keyPrefix,
-	}
-}
-
 // NewRdsCache 创建redis缓存对象
-func NewRdsCache(network, address string, rdsCfgs ...RdsConfig) *RdsCache {
+func NewRdsCache(network, address string, rdsCfg *RdsConfig) *RdsCache {
 	var opts []redis.DialOption
 	var poolCfg *PoolConfig
 	var keyPrefix string
 	var defaultTTL time.Duration
 
-	for _, c := range rdsCfgs {
-		if c.opt != nil {
-			opts = append(opts, *c.opt)
+	if rdsCfg != nil {
+		if rdsCfg.Dial != nil {
+			opts = append(opts, redis.DialNetDial(rdsCfg.Dial))
 		}
-		if c.poolCfg != nil {
-			poolCfg = c.poolCfg
+		if rdsCfg.DB != 0 {
+			opts = append(opts, redis.DialDatabase(rdsCfg.DB))
 		}
-		if c.keyPrefix != "" {
-			keyPrefix = c.keyPrefix
+		if rdsCfg.Password != "" {
+			opts = append(opts, redis.DialPassword(rdsCfg.Password))
 		}
-		if c.DefaultTTL != 0 {
-			defaultTTL = c.DefaultTTL
+		if rdsCfg.PoolCfg != nil {
+			poolCfg = rdsCfg.PoolCfg
+		}
+		if rdsCfg.KeyPrefix != "" {
+			keyPrefix = rdsCfg.KeyPrefix
+		}
+		if rdsCfg.DefaultTTL != 0 {
+			defaultTTL = rdsCfg.DefaultTTL
 		}
 	}
 
