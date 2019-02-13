@@ -14,7 +14,7 @@ query := func(key, value interface{}) error {
 }
 
 s := lrucache.NewLRUCache(1000, time.Second)
-// or s := rdscache.NewRdsCache("tcp", rds.Addr(), rdscache.RdsDB(1), rdscache.RdsKeyPrefix("cache"))
+// or s := rdscache.NewRdsCache("tcp", rds.Addr(), &rdscache.RdsConfig{DB: 1, KeyPrefix: "cache"})
 cache := cachex.NewCachex(s, cachex.QueryFunc(query))
 
 var dt DateTime
@@ -26,18 +26,20 @@ if err != nil {
 ```
 
 # API
+## cachex
+--
+    import "github.com/wencan/cachex"
 
-## cachex API
 
-#### variables
+### Usage
 
 ```go
 var (
-	// ErrNotFound 没找到
-	ErrNotFound = errors.New("not found")
+        // ErrNotFound 没找到
+        ErrNotFound = errors.New("not found")
 
-	// ErrNotSupported 操作不支持
-	ErrNotSupported = errors.New("not supported operation")
+        // ErrNotSupported 操作不支持
+        ErrNotSupported = errors.New("not supported operation")
 )
 ```
 
@@ -57,6 +59,13 @@ func NewCachex(storage Storage, querier Querier) (c *Cachex)
 ```
 NewCachex 新建缓存处理对象
 
+#### func (*Cachex) Del
+
+```go
+func (c *Cachex) Del(key interface{}) error
+```
+Del 删除
+
 #### func (*Cachex) Get
 
 ```go
@@ -71,33 +80,71 @@ func (c *Cachex) Set(key, value interface{}) error
 ```
 Set 更新
 
-#### func (*Cachex) Set
+#### func (*Cachex) SetWithTTL
 
 ```go
 func (c *Cachex) SetWithTTL(key, value interface{}, TTL time.Duration) error
 ```
 SetWithTTL 更新，并定制TTL
 
-#### func (*Cachex) Del
-
-```go
-func (c *Cachex) Del(key interface{}) error
-```
-Del 删除
-
 #### func (*Cachex) UseStaleWhenError
 
 ```go
 func (c *Cachex) UseStaleWhenError(use bool)
 ```
-UseStaleWhenError 设置当查询发生错误时，使用过期的缓存数据。该特性需要Storage支持（Get返回过期的缓存数据和Expired错误实现）。默认关闭。
+UseStaleWhenError
+设置当查询发生错误时，使用过期的缓存数据。该特性需要Storage支持（Get返回过期的缓存数据和Expired错误实现）。默认关闭。
+
+#### type ClearableStorage
+
+```go
+type ClearableStorage interface {
+        Storage
+        Clear() error
+}
+```
+
+ClearableStorage 支持清理操作的存储后端接口
+
+#### type DeletableStorage
+
+```go
+type DeletableStorage interface {
+        Storage
+        Del(key interface{}) error
+}
+```
+
+DeletableStorage 支持删除操作的存储后端接口
+
+#### type Expired
+
+```go
+type Expired interface {
+        error
+        Expired()
+}
+```
+
+Expired 已过期错误接口
+
+#### type NotFound
+
+```go
+type NotFound interface {
+        error
+        NotFound()
+}
+```
+
+NotFound 没找到错误接口
 
 #### type Querier
 
 ```go
 type Querier interface {
-	// Query 查询。value必须是非nil指针。没找到返回Expired
-	Query(key, value interface{}) error
+        // Query 查询。value必须是非nil指针。没找到返回NotFound错误实现
+        Query(key, value interface{}) error
 }
 ```
 
@@ -118,110 +165,29 @@ func (fun QueryFunc) Query(key, value interface{}) error
 ```
 Query 查询过程实现Querier接口
 
-## cachex/lrucache API
-
-#### func  NewLRUCache
+#### type SetWithTTLableStorage
 
 ```go
-func NewLRUCache(maxEntries int, TTL time.Duration) *LRUCache
-```
-NewLRUCache 新建本地LRU缓存
-
-## cachex/rdscache API
-
-#### variables
-
-```go
-var (
-	// Marshal 数据序列化函数
-	Marshal = msgpack.Marshal
-
-	// Unmarshal 数据反序列化函数
-	Unmarshal = msgpack.Unmarshal
-)
-```
-
-#### type PoolConfig
-
-```go
-type PoolConfig struct {
-	MaxIdle int
-
-	MaxActive int
-
-	IdleTimeout time.Duration
-
-	Wait bool
-
-	MaxConnLifetime time.Duration
+type SetWithTTLableStorage interface {
+        Storage
+        SetWithTTL(key, value interface{}, TTL time.Duration) error
 }
 ```
 
-PoolConfig redis连接池配置
+SetWithTTLableStorage 支持定制TTL的存储后端接口
 
-#### type RdsCache
+#### type Storage
 
 ```go
-type RdsCache struct {
+type Storage interface {
+        // Get 获取缓存的数据。value必须是非nil指针。没找到返回NotFound；数据已经过期返回过期数据加NotFound
+        Get(key, value interface{}) error
+
+        // Set 缓存数据
+        Set(key, value interface{}) error
 }
 ```
 
-RdsCache redis存储实现
+Storage 存储后端接口
 
-#### func  NewRdsCache
 
-```go
-func NewRdsCache(network, address string, rdsCfgs ...RdsConfig) *RdsCache
-```
-NewRdsCache 创建redis缓存对象
-
-#### type RdsConfig
-
-```go
-type RdsConfig struct {
-}
-```
-
-RdsConfig rdscache配置
-
-#### func  RdsDB
-
-```go
-func RdsDB(db int) RdsConfig
-```
-RdsDB redis db配置
-
-#### func  RdsDial
-
-```go
-func RdsDial(dial func(network, addr string) (net.Conn, error)) RdsConfig
-```
-RdsDial redis连接函数
-
-#### func  RdsKeyPrefix
-
-```go
-func RdsKeyPrefix(keyPrefix string) RdsConfig
-```
-RdsKeyPrefix redis key前缀
-
-#### func  RdsPassword
-
-```go
-func RdsPassword(password string) RdsConfig
-```
-RdsPassword redis密码
-
-#### func  RdsPoolConfig
-
-```go
-func RdsPoolConfig(poolCfg PoolConfig) RdsConfig
-```
-RdsPoolConfig redis连接池配置对象
-
-#### func  RdsDefaultTTL
-
-```go
-func RdsDefaultTTL(ttl time.Duration) RdsConfig
-```
-RdsDefaultTTL 默认redis key生存时间
