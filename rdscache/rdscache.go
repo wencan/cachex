@@ -46,8 +46,14 @@ type RdsCache struct {
 	defaultTTL time.Duration
 }
 
-// PoolConfig redis连接池配置
+// PoolConfig redis池连接参数
 type PoolConfig struct {
+	Dial func(network, addr string) (net.Conn, error)
+
+	DB int
+
+	Password string
+
 	MaxIdle int
 
 	MaxActive int
@@ -59,47 +65,43 @@ type PoolConfig struct {
 	MaxConnLifetime time.Duration
 }
 
-// RdsConfig rdscache配置
-type RdsConfig struct {
-	Dial func(network, addr string) (net.Conn, error)
+type rdsOptions struct {
+	keyPrefix string
 
-	DB int
+	defaultTTL time.Duration
+}
 
-	Password string
+// RdsOption rdscache配置
+type RdsOption struct {
+	f func(*rdsOptions)
+}
 
-	PoolCfg *PoolConfig
+// RdsKeyPrefixOption 配置key前缀
+func RdsKeyPrefixOption(keyPrefix string) RdsOption {
+	return RdsOption{func(options *rdsOptions) {
+		options.keyPrefix = keyPrefix
+	}}
+}
 
-	KeyPrefix string
-
-	DefaultTTL time.Duration
+// RdsDefaultTTLOption 配置key默认生存时间
+func RdsDefaultTTLOption(defaultTTL time.Duration) RdsOption {
+	return RdsOption{func(options *rdsOptions) {
+		options.defaultTTL = defaultTTL
+	}}
 }
 
 // NewRdsCache 创建redis缓存对象
-func NewRdsCache(network, address string, rdsCfg *RdsConfig) *RdsCache {
+// 内部创建redis连接池
+func NewRdsCache(network, address string, poolCfg PoolConfig, options ...RdsOption) *RdsCache {
 	var opts []redis.DialOption
-	var poolCfg *PoolConfig
-	var keyPrefix string
-	var defaultTTL time.Duration
-
-	if rdsCfg != nil {
-		if rdsCfg.Dial != nil {
-			opts = append(opts, redis.DialNetDial(rdsCfg.Dial))
-		}
-		if rdsCfg.DB != 0 {
-			opts = append(opts, redis.DialDatabase(rdsCfg.DB))
-		}
-		if rdsCfg.Password != "" {
-			opts = append(opts, redis.DialPassword(rdsCfg.Password))
-		}
-		if rdsCfg.PoolCfg != nil {
-			poolCfg = rdsCfg.PoolCfg
-		}
-		if rdsCfg.KeyPrefix != "" {
-			keyPrefix = rdsCfg.KeyPrefix
-		}
-		if rdsCfg.DefaultTTL != 0 {
-			defaultTTL = rdsCfg.DefaultTTL
-		}
+	if poolCfg.Dial != nil {
+		opts = append(opts, redis.DialNetDial(poolCfg.Dial))
+	}
+	if poolCfg.DB != 0 {
+		opts = append(opts, redis.DialDatabase(poolCfg.DB))
+	}
+	if poolCfg.Password != "" {
+		opts = append(opts, redis.DialPassword(poolCfg.Password))
 	}
 
 	rdsPool := &redis.Pool{
@@ -107,18 +109,28 @@ func NewRdsCache(network, address string, rdsCfg *RdsConfig) *RdsCache {
 			return redis.Dial(network, address, opts...)
 		},
 	}
-	if poolCfg != nil {
-		rdsPool.MaxIdle = poolCfg.MaxIdle
-		rdsPool.MaxActive = poolCfg.MaxActive
-		rdsPool.IdleTimeout = poolCfg.IdleTimeout
-		rdsPool.Wait = poolCfg.Wait
-		rdsPool.MaxConnLifetime = poolCfg.MaxConnLifetime
+
+	rdsPool.MaxIdle = poolCfg.MaxIdle
+	rdsPool.MaxActive = poolCfg.MaxActive
+	rdsPool.IdleTimeout = poolCfg.IdleTimeout
+	rdsPool.Wait = poolCfg.Wait
+	rdsPool.MaxConnLifetime = poolCfg.MaxConnLifetime
+
+	return NewRdsCacheWithPool(rdsPool, options...)
+}
+
+// NewRdsCacheWithPool 创建redis缓存对象
+// 使用现有redis连接池
+func NewRdsCacheWithPool(rdsPool *redis.Pool, options ...RdsOption) *RdsCache {
+	var opts rdsOptions
+	for _, option := range options {
+		option.f(&opts)
 	}
 
 	return &RdsCache{
 		rdsPool:    rdsPool,
-		keyPrefix:  keyPrefix,
-		defaultTTL: defaultTTL,
+		keyPrefix:  opts.keyPrefix,
+		defaultTTL: opts.defaultTTL,
 	}
 }
 

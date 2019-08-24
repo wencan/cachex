@@ -28,7 +28,7 @@ query := func(key, value interface{}) error {
 }
 
 s := lrucache.NewLRUCache(1000, time.Second)
-// or s := rdscache.NewRdsCache("tcp", rds.Addr(), &rdscache.RdsConfig{DB: 1, KeyPrefix: "cache"})
+// or s := rdscache.NewRdsCache("tcp", rds.Addr(), PoolConfig{DB: 1}, RdsKeyPrefixOption("cache"))
 cache := cachex.NewCachex(s, cachex.QueryFunc(query))
 
 var dt DateTime
