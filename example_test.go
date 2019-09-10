@@ -26,7 +26,7 @@ func init() {
 	rds, _ = miniredis.Run()
 }
 
-func Example_WithLRUCache() {
+func ExampleCachex_LRUCache() {
 	type DateTime struct {
 		ID   int    `db:"id"`
 		Date string `db:"date"`
@@ -69,7 +69,7 @@ func Example_WithLRUCache() {
 	// 1 2019-08-25 10:54:35
 }
 
-func Example_WithRdsCache() {
+func ExampleCachex_RdsCache() {
 	type DateTime struct {
 		ID   string `db:"id" msgpack:"i"`
 		Date string `db:"date" msgpack:"d"`
