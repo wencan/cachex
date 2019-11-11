@@ -18,6 +18,12 @@ var (
 	ErrNotSupported = errors.New("not supported operation")
 )
 
+// Keyable 如果需要包装多个参数为key，包装结构体实现该接口，以支持获取包装结构体的缓存Key。
+type Keyable interface {
+	// Key 给Storage的缓存Key
+	Key() interface{}
+}
+
 // Cachex 缓存处理类
 type Cachex struct {
 	storage Storage
@@ -48,6 +54,12 @@ func NewCachex(storage Storage, querier Querier) (c *Cachex) {
 func (c *Cachex) Get(key, value interface{}) error {
 	if v := reflect.ValueOf(value); v.Kind() != reflect.Ptr || v.IsNil() {
 		panic("value not is non-nil pointer")
+	}
+
+	// 支持包装结构体的key
+	request := key
+	if keyable, ok := key.(Keyable); ok {
+		key = keyable.Key()
 	}
 
 	err := c.storage.Get(key, value)
@@ -101,7 +113,7 @@ func (c *Cachex) Get(key, value interface{}) error {
 	}
 
 	if !loaded {
-		err := c.querier.Query(key, value)
+		err := c.querier.Query(request, value)
 		if err != nil && c.useStale && staled != nil {
 			// 当查询发生错误时，使用过期的缓存数据。该特性需要Storage支持
 			reflect.ValueOf(value).Elem().Set(reflect.ValueOf(staled))
@@ -134,12 +146,18 @@ func (c *Cachex) Get(key, value interface{}) error {
 
 // Set 更新
 func (c *Cachex) Set(key, value interface{}) error {
+	if keyable, ok := key.(Keyable); ok {
+		key = keyable.Key()
+	}
 	return c.storage.Set(key, value)
 }
 
 // SetWithTTL 更新，并定制TTL
 func (c *Cachex) SetWithTTL(key, value interface{}, TTL time.Duration) error {
 	if c.withTTLableStorage != nil {
+		if keyable, ok := key.(Keyable); ok {
+			key = keyable.Key()
+		}
 		c.withTTLableStorage.SetWithTTL(key, value, TTL)
 	}
 	return ErrNotSupported
@@ -148,7 +166,10 @@ func (c *Cachex) SetWithTTL(key, value interface{}, TTL time.Duration) error {
 // Del 删除
 func (c *Cachex) Del(key interface{}) error {
 	if c.deletableStorage != nil {
-		c.deletableStorage.Del(key)
+		if keyable, ok := key.(Keyable); ok {
+			key = keyable.Key()
+		}
+		return c.deletableStorage.Del(key)
 	}
 	return ErrNotSupported
 }

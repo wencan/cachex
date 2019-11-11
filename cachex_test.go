@@ -26,7 +26,7 @@ func TestCachexGet(t *testing.T) {
 	notFound := mock_cachex.NewMockNotFound(ctrl)
 	cached := make(map[interface{}]interface{})
 	mockStorage := mock_cachex.NewMockStorage(ctrl)
-	mockStorage.EXPECT().Set(gomock.Any(), gomock.Any()).DoAndReturn(func(key, value interface{}) error {
+	mockStorage.EXPECT().Set(gomock.AssignableToTypeOf(1), gomock.Any()).DoAndReturn(func(key, value interface{}) error {
 		cached[key] = value
 		return nil
 	}).AnyTimes()
@@ -83,7 +83,7 @@ func TestCachexExpired(t *testing.T) {
 	cached := make(map[interface{}]interface{})
 	expires := make(map[interface{}]int64)
 	mockStorage := mock_cachex.NewMockStorage(ctrl)
-	mockStorage.EXPECT().Set(gomock.Any(), gomock.Any()).DoAndReturn(func(key, value interface{}) error {
+	mockStorage.EXPECT().Set(gomock.AssignableToTypeOf(1), gomock.Any()).DoAndReturn(func(key, value interface{}) error {
 		cached[key] = value
 		expires[key] = time.Now().UnixNano() + 1000*1000*100 // 0.1秒
 		return nil
@@ -171,7 +171,7 @@ func TestCachexGetConcurrency(t *testing.T) {
 	notFound := mock_cachex.NewMockNotFound(ctrl)
 	cached := make(map[interface{}]interface{})
 	mockStorage := mock_cachex.NewMockStorage(ctrl)
-	mockStorage.EXPECT().Set(gomock.Any(), gomock.Any()).DoAndReturn(func(key, value interface{}) error {
+	mockStorage.EXPECT().Set(gomock.AssignableToTypeOf(1), gomock.Any()).DoAndReturn(func(key, value interface{}) error {
 		cached[key] = value
 		return nil
 	}).AnyTimes()
@@ -224,7 +224,7 @@ func TestCachex_UseStaleWhenError(t *testing.T) {
 	cached := make(map[interface{}]interface{})
 	expires := make(map[interface{}]int64)
 	mockStorage := mock_cachex.NewMockStorage(ctrl)
-	mockStorage.EXPECT().Set(gomock.Any(), gomock.Any()).DoAndReturn(func(key, value interface{}) error {
+	mockStorage.EXPECT().Set(gomock.AssignableToTypeOf(1), gomock.Any()).DoAndReturn(func(key, value interface{}) error {
 		cached[key] = value
 		expires[key] = time.Now().UnixNano() + int64(time.Nanosecond*2)
 		return nil
@@ -277,4 +277,56 @@ func TestCachex_UseStaleWhenError(t *testing.T) {
 			}
 		}
 	}
+}
+
+type testRequest struct {
+	num int
+}
+
+func (request testRequest) Key() interface{} {
+	return request.num
+}
+
+func TestCachexGetWithKeyable(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	notFound := mock_cachex.NewMockNotFound(ctrl)
+	cached := make(map[interface{}]interface{})
+	mockStorage := mock_cachex.NewMockDeletableStorage(ctrl)
+	mockStorage.EXPECT().Set(gomock.AssignableToTypeOf(1), gomock.Any()).DoAndReturn(func(key, value interface{}) error {
+		cached[key] = value
+		return nil
+	}).AnyTimes()
+	mockStorage.EXPECT().Del(gomock.AssignableToTypeOf(1)).DoAndReturn(func(key interface{}) error {
+		delete(cached, key)
+		return nil
+	}).AnyTimes()
+	mockStorage.EXPECT().Get(gomock.AssignableToTypeOf(1), gomock.Any()).DoAndReturn(func(key, value interface{}) error {
+		v, exist := cached[key]
+		if !exist {
+			return notFound
+		}
+		reflect.ValueOf(value).Elem().Set(reflect.ValueOf(v))
+		return nil
+	}).AnyTimes()
+
+	mockQuery := mock_cachex.NewMockQuerier(ctrl)
+	mockQuery.EXPECT().Query(gomock.AssignableToTypeOf((*testRequest)(nil)), gomock.Any()).DoAndReturn(func(key, value interface{}) error {
+		request := key.(*testRequest)
+		result := request.num * request.num
+		reflect.ValueOf(value).Elem().Set(reflect.ValueOf(result))
+		return nil
+	}).AnyTimes()
+
+	c := NewCachex(mockStorage, mockQuery)
+
+	request := &testRequest{num: 10}
+	var value int
+	err := c.Get(request, &value)
+	assert.NoError(t, err)
+	err = c.Set(request, 10)
+	assert.NoError(t, err)
+	err = c.Del(request)
+	assert.NoError(t, err)
 }
