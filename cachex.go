@@ -50,10 +50,40 @@ func NewCachex(storage Storage, querier Querier) (c *Cachex) {
 	return c
 }
 
+// getOptions Get方法的可选参数项
+type getOptions struct {
+	querier Querier
+}
+
+// GetOption Get方法的可选参数项结构，不需要直接调用。
+type GetOption struct {
+	apply func(options *getOptions)
+}
+
+// GetQueryOption 为Get操作定制查询过程。
+func GetQueryOption(querier Querier) GetOption {
+	return GetOption{
+		apply: func(options *getOptions) {
+			options.querier = querier
+		},
+	}
+}
+
 // Get 获取
-func (c *Cachex) Get(key, value interface{}) error {
+func (c *Cachex) Get(key, value interface{}, opts ...GetOption) error {
 	if v := reflect.ValueOf(value); v.Kind() != reflect.Ptr || v.IsNil() {
 		panic("value not is non-nil pointer")
+	}
+
+	// 可选参数
+	var options getOptions
+	for _, opt := range opts {
+		opt.apply(&options)
+	}
+	// 查询过程
+	querier := c.querier
+	if options.querier != nil {
+		querier = options.querier
 	}
 
 	// 支持包装结构体的key
@@ -73,7 +103,7 @@ func (c *Cachex) Get(key, value interface{}) error {
 		return err
 	}
 
-	if c.querier == nil {
+	if querier == nil {
 		return ErrNotFound
 	}
 
@@ -113,7 +143,7 @@ func (c *Cachex) Get(key, value interface{}) error {
 	}
 
 	if !loaded {
-		err := c.querier.Query(request, value)
+		err := querier.Query(request, value)
 		if err != nil && c.useStale && staled != nil {
 			// 当查询发生错误时，使用过期的缓存数据。该特性需要Storage支持
 			reflect.ValueOf(value).Elem().Set(reflect.ValueOf(staled))

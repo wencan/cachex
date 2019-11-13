@@ -330,3 +330,42 @@ func TestCachexGetWithKeyable(t *testing.T) {
 	err = c.Del(request)
 	assert.NoError(t, err)
 }
+
+func TestCachexGetQueryOption(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	notFound := mock_cachex.NewMockNotFound(ctrl)
+	cached := make(map[interface{}]interface{})
+	expires := make(map[interface{}]int64)
+	mockStorage := mock_cachex.NewMockStorage(ctrl)
+	mockStorage.EXPECT().Set(gomock.AssignableToTypeOf(1), gomock.Any()).DoAndReturn(func(key, value interface{}) error {
+		cached[key] = value
+		expires[key] = time.Now().UnixNano() + 1000*1000*100 // 0.1秒
+		return nil
+	}).AnyTimes()
+	mockStorage.EXPECT().Get(gomock.AssignableToTypeOf(1), gomock.Any()).DoAndReturn(func(key, value interface{}) error {
+		if expire, exist := expires[key]; exist && expire > time.Now().UnixNano() {
+			reflect.ValueOf(value).Elem().Set(reflect.ValueOf(cached[key]))
+			return nil
+		}
+		return notFound
+	}).AnyTimes()
+
+	mockQuery := mock_cachex.NewMockQuerier(ctrl)
+	mockQuery.EXPECT().Query(gomock.AssignableToTypeOf(1), gomock.Any()).DoAndReturn(func(key, value interface{}) error {
+		num := key.(int)
+		result := num * num
+		reflect.ValueOf(value).Elem().Set(reflect.ValueOf(result))
+		return nil
+	}).AnyTimes()
+
+	// 默认querier为nil
+	c := NewCachex(mockStorage, nil)
+
+	var value int
+	// 定制querier
+	err := c.Get(10, &value, GetQueryOption(mockQuery))
+	assert.NoError(t, err)
+	assert.Equal(t, 100, value)
+}
