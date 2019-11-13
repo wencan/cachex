@@ -53,6 +53,7 @@ func NewCachex(storage Storage, querier Querier) (c *Cachex) {
 // getOptions Get方法的可选参数项
 type getOptions struct {
 	querier Querier
+	ttl     time.Duration
 }
 
 // GetOption Get方法的可选参数项结构，不需要直接调用。
@@ -65,6 +66,16 @@ func GetQueryOption(querier Querier) GetOption {
 	return GetOption{
 		apply: func(options *getOptions) {
 			options.querier = querier
+		},
+	}
+}
+
+// GetTTLOption 为Get操作定制TTL。
+// 需要存储后端支持，否则报错。
+func GetTTLOption(ttl time.Duration) GetOption {
+	return GetOption{
+		apply: func(options *getOptions) {
+			options.ttl = ttl
 		},
 	}
 }
@@ -84,6 +95,14 @@ func (c *Cachex) Get(key, value interface{}, opts ...GetOption) error {
 	querier := c.querier
 	if options.querier != nil {
 		querier = options.querier
+	}
+	// ttl
+	var ttl time.Duration
+	if options.ttl != 0 {
+		if c.withTTLableStorage == nil {
+			return ErrNotSupported
+		}
+		ttl = options.ttl
 	}
 
 	// 支持包装结构体的key
@@ -162,8 +181,13 @@ func (c *Cachex) Get(key, value interface{}, opts ...GetOption) error {
 			return err
 		}
 
+		// 更新到存储后端
 		elem := reflect.ValueOf(value).Elem().Interface()
-		err = c.storage.Set(key, elem)
+		if ttl != 0 {
+			err = c.withTTLableStorage.SetWithTTL(key, elem, ttl)
+		} else {
+			err = c.storage.Set(key, elem)
+		}
 
 		sentinel.Done(elem, nil)
 		c.sentinels.Delete(key)
