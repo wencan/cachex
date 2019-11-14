@@ -218,14 +218,17 @@ func (c *Cachex) SetWithTTL(key, value interface{}, TTL time.Duration) error {
 }
 
 // Del 删除
-func (c *Cachex) Del(key interface{}) error {
-	if c.deletableStorage != nil {
-		if keyable, ok := key.(Keyable); ok {
-			key = keyable.Key()
-		}
-		return c.deletableStorage.Del(key)
+func (c *Cachex) Del(keys ...interface{}) error {
+	if c.deletableStorage == nil {
+		return ErrNotSupported
 	}
-	return ErrNotSupported
+
+	for idx, key := range keys {
+		if keyable, ok := key.(Keyable); ok {
+			keys[idx] = keyable.Key()
+		}
+	}
+	return c.deletableStorage.Del(keys...)
 }
 
 // UseStaleWhenError 设置当查询发生错误时，使用过期的缓存数据。该特性需要Storage支持（Get返回过期的缓存数据和Expired错误实现）。默认关闭。

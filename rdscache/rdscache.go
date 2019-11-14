@@ -209,16 +209,19 @@ func (c *RdsCache) Get(key, value interface{}) error {
 }
 
 // Del 删除缓存数据
-func (c *RdsCache) Del(key interface{}) error {
-	skey, err := c.stringKey(key)
-	if err != nil {
-		return err
+func (c *RdsCache) Del(keys ...interface{}) error {
+	var err error
+	for idx, key := range keys {
+		keys[idx], err = c.stringKey(key)
+		if err != nil {
+			return err
+		}
 	}
 
 	conn := c.rdsPool.Get()
 	defer conn.Close()
 
-	_, err = conn.Do("DEL", skey)
+	_, err = conn.Do("DEL", keys...)
 	if err != nil {
 		return err
 	}

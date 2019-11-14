@@ -21,7 +21,7 @@ type Storage interface {
 // DeletableStorage 支持删除操作的存储后端接口
 type DeletableStorage interface {
 	Storage
-	Del(key interface{}) error
+	Del(keys ...interface{}) error
 }
 
 // ClearableStorage 支持清理操作的存储后端接口

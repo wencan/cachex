@@ -113,17 +113,21 @@ func (mr *MockDeletableStorageMockRecorder) Set(key, value interface{}) *gomock.
 }
 
 // Del mocks base method
-func (m *MockDeletableStorage) Del(key interface{}) error {
+func (m *MockDeletableStorage) Del(keys ...interface{}) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Del", key)
+	varargs := []interface{}{}
+	for _, a := range keys {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "Del", varargs...)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Del indicates an expected call of Del
-func (mr *MockDeletableStorageMockRecorder) Del(key interface{}) *gomock.Call {
+func (mr *MockDeletableStorageMockRecorder) Del(keys ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Del", reflect.TypeOf((*MockDeletableStorage)(nil).Del), key)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Del", reflect.TypeOf((*MockDeletableStorage)(nil).Del), keys...)
 }
 
 // MockClearableStorage is a mock of ClearableStorage interface

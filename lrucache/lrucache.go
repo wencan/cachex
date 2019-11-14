@@ -162,8 +162,16 @@ func (c *LRUCache) Remove(key interface{}) {
 }
 
 // Del 删除缓存数据
-func (c *LRUCache) Del(key interface{}) error {
-	c.Remove(key)
+func (c *LRUCache) Del(keys ...interface{}) error {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	for _, key := range keys {
+		entry, _ := c.Mapping.Pop(key)
+		if entry != nil {
+			c.entryPool.Put(entry)
+		}
+	}
 	return nil
 }
 
