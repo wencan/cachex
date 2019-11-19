@@ -164,7 +164,7 @@ func TestCachexGetConcurrency(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	routines := 500
+	routines := 1000
 	loopTimes := 1000
 	total := int64(0)
 

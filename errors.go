@@ -13,7 +13,8 @@ type Expired interface {
 	Expired()
 }
 
-// NotFound 没找到错误接口
+// NotFound 没找到错误接口。
+// 需要存储后端找不到缓存时，返回一个实现了NotFound接口的错误。
 type NotFound interface {
 	error
 	NotFound()
