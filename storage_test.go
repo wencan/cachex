@@ -1,6 +1,7 @@
 package cachex
 
 import (
+	"context"
 	"reflect"
 	"testing"
 
@@ -13,8 +14,10 @@ func TestNopStorage(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	ctx := context.Background()
+
 	mockQuery := mock_cachex.NewMockQuerier(ctrl)
-	mockQuery.EXPECT().Query(gomock.AssignableToTypeOf(1), gomock.Any()).DoAndReturn(func(key, value interface{}) error {
+	mockQuery.EXPECT().Query(gomock.Eq(ctx), gomock.AssignableToTypeOf(1), gomock.Any()).DoAndReturn(func(ctx context.Context, key, value interface{}) error {
 		num := key.(int)
 		result := num * num
 		reflect.ValueOf(value).Elem().Set(reflect.ValueOf(result))
@@ -24,7 +27,7 @@ func TestNopStorage(t *testing.T) {
 	c := NewCachex(NopStorage{}, mockQuery)
 
 	var value int
-	err := c.Get(10, &value)
+	err := c.Get(ctx, 10, &value)
 	assert.NoError(t, err)
 	assert.Equal(t, 100, value)
 }

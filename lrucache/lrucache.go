@@ -4,6 +4,7 @@ package lrucache
 // 2017-08-31
 
 import (
+	"context"
 	"reflect"
 	"sync"
 	"time"
@@ -64,12 +65,12 @@ func NewLRUCache(maxEntries int, defaultTTL time.Duration) *LRUCache {
 }
 
 // Set 设置缓存数据
-func (c *LRUCache) Set(key, value interface{}) error {
-	return c.SetWithTTL(key, value, c.defaultTTL)
+func (c *LRUCache) Set(ctx context.Context, key, value interface{}) error {
+	return c.SetWithTTL(ctx, key, value, c.defaultTTL)
 }
 
 // SetWithTTL 设置缓存数据，并定制TTL
-func (c *LRUCache) SetWithTTL(key, value interface{}, TTL time.Duration) error {
+func (c *LRUCache) SetWithTTL(ctx context.Context, key, value interface{}, TTL time.Duration) error {
 	// 深拷贝
 	t := reflect.ValueOf(value)
 	if t.Kind() == reflect.Ptr {
@@ -112,7 +113,7 @@ func (c *LRUCache) SetWithTTL(key, value interface{}, TTL time.Duration) error {
 }
 
 // Get 获取缓存数据
-func (c *LRUCache) Get(key, value interface{}) error {
+func (c *LRUCache) Get(ctx context.Context, key, value interface{}) error {
 	if v := reflect.ValueOf(value); v.Kind() != reflect.Ptr || v.IsNil() {
 		panic("value not is non-nil pointer")
 	}
@@ -162,7 +163,7 @@ func (c *LRUCache) Remove(key interface{}) {
 }
 
 // Del 删除缓存数据
-func (c *LRUCache) Del(keys ...interface{}) error {
+func (c *LRUCache) Del(ctx context.Context, keys ...interface{}) error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
@@ -184,7 +185,7 @@ func (c *LRUCache) Len() int {
 }
 
 // Clear 清空缓存的数据
-func (c *LRUCache) Clear() error {
+func (c *LRUCache) Clear(ctx context.Context) error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 

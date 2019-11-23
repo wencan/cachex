@@ -5,6 +5,7 @@
 package mock_cachex
 
 import (
+	context "context"
 	gomock "github.com/golang/mock/gomock"
 	reflect "reflect"
 	time "time"
@@ -34,31 +35,31 @@ func (m *MockStorage) EXPECT() *MockStorageMockRecorder {
 }
 
 // Get mocks base method
-func (m *MockStorage) Get(key, value interface{}) error {
+func (m *MockStorage) Get(ctx context.Context, key, value interface{}) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Get", key, value)
+	ret := m.ctrl.Call(m, "Get", ctx, key, value)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Get indicates an expected call of Get
-func (mr *MockStorageMockRecorder) Get(key, value interface{}) *gomock.Call {
+func (mr *MockStorageMockRecorder) Get(ctx, key, value interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockStorage)(nil).Get), key, value)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockStorage)(nil).Get), ctx, key, value)
 }
 
 // Set mocks base method
-func (m *MockStorage) Set(key, value interface{}) error {
+func (m *MockStorage) Set(ctx context.Context, key, value interface{}) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Set", key, value)
+	ret := m.ctrl.Call(m, "Set", ctx, key, value)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Set indicates an expected call of Set
-func (mr *MockStorageMockRecorder) Set(key, value interface{}) *gomock.Call {
+func (mr *MockStorageMockRecorder) Set(ctx, key, value interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Set", reflect.TypeOf((*MockStorage)(nil).Set), key, value)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Set", reflect.TypeOf((*MockStorage)(nil).Set), ctx, key, value)
 }
 
 // MockDeletableStorage is a mock of DeletableStorage interface
@@ -85,37 +86,37 @@ func (m *MockDeletableStorage) EXPECT() *MockDeletableStorageMockRecorder {
 }
 
 // Get mocks base method
-func (m *MockDeletableStorage) Get(key, value interface{}) error {
+func (m *MockDeletableStorage) Get(ctx context.Context, key, value interface{}) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Get", key, value)
+	ret := m.ctrl.Call(m, "Get", ctx, key, value)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Get indicates an expected call of Get
-func (mr *MockDeletableStorageMockRecorder) Get(key, value interface{}) *gomock.Call {
+func (mr *MockDeletableStorageMockRecorder) Get(ctx, key, value interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockDeletableStorage)(nil).Get), key, value)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockDeletableStorage)(nil).Get), ctx, key, value)
 }
 
 // Set mocks base method
-func (m *MockDeletableStorage) Set(key, value interface{}) error {
+func (m *MockDeletableStorage) Set(ctx context.Context, key, value interface{}) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Set", key, value)
+	ret := m.ctrl.Call(m, "Set", ctx, key, value)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Set indicates an expected call of Set
-func (mr *MockDeletableStorageMockRecorder) Set(key, value interface{}) *gomock.Call {
+func (mr *MockDeletableStorageMockRecorder) Set(ctx, key, value interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Set", reflect.TypeOf((*MockDeletableStorage)(nil).Set), key, value)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Set", reflect.TypeOf((*MockDeletableStorage)(nil).Set), ctx, key, value)
 }
 
 // Del mocks base method
-func (m *MockDeletableStorage) Del(keys ...interface{}) error {
+func (m *MockDeletableStorage) Del(ctx context.Context, keys ...interface{}) error {
 	m.ctrl.T.Helper()
-	varargs := []interface{}{}
+	varargs := []interface{}{ctx}
 	for _, a := range keys {
 		varargs = append(varargs, a)
 	}
@@ -125,9 +126,10 @@ func (m *MockDeletableStorage) Del(keys ...interface{}) error {
 }
 
 // Del indicates an expected call of Del
-func (mr *MockDeletableStorageMockRecorder) Del(keys ...interface{}) *gomock.Call {
+func (mr *MockDeletableStorageMockRecorder) Del(ctx interface{}, keys ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Del", reflect.TypeOf((*MockDeletableStorage)(nil).Del), keys...)
+	varargs := append([]interface{}{ctx}, keys...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Del", reflect.TypeOf((*MockDeletableStorage)(nil).Del), varargs...)
 }
 
 // MockClearableStorage is a mock of ClearableStorage interface
@@ -154,45 +156,45 @@ func (m *MockClearableStorage) EXPECT() *MockClearableStorageMockRecorder {
 }
 
 // Get mocks base method
-func (m *MockClearableStorage) Get(key, value interface{}) error {
+func (m *MockClearableStorage) Get(ctx context.Context, key, value interface{}) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Get", key, value)
+	ret := m.ctrl.Call(m, "Get", ctx, key, value)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Get indicates an expected call of Get
-func (mr *MockClearableStorageMockRecorder) Get(key, value interface{}) *gomock.Call {
+func (mr *MockClearableStorageMockRecorder) Get(ctx, key, value interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockClearableStorage)(nil).Get), key, value)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockClearableStorage)(nil).Get), ctx, key, value)
 }
 
 // Set mocks base method
-func (m *MockClearableStorage) Set(key, value interface{}) error {
+func (m *MockClearableStorage) Set(ctx context.Context, key, value interface{}) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Set", key, value)
+	ret := m.ctrl.Call(m, "Set", ctx, key, value)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Set indicates an expected call of Set
-func (mr *MockClearableStorageMockRecorder) Set(key, value interface{}) *gomock.Call {
+func (mr *MockClearableStorageMockRecorder) Set(ctx, key, value interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Set", reflect.TypeOf((*MockClearableStorage)(nil).Set), key, value)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Set", reflect.TypeOf((*MockClearableStorage)(nil).Set), ctx, key, value)
 }
 
 // Clear mocks base method
-func (m *MockClearableStorage) Clear() error {
+func (m *MockClearableStorage) Clear(ctx context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Clear")
+	ret := m.ctrl.Call(m, "Clear", ctx)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Clear indicates an expected call of Clear
-func (mr *MockClearableStorageMockRecorder) Clear() *gomock.Call {
+func (mr *MockClearableStorageMockRecorder) Clear(ctx interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Clear", reflect.TypeOf((*MockClearableStorage)(nil).Clear))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Clear", reflect.TypeOf((*MockClearableStorage)(nil).Clear), ctx)
 }
 
 // MockSetWithTTLableStorage is a mock of SetWithTTLableStorage interface
@@ -219,43 +221,43 @@ func (m *MockSetWithTTLableStorage) EXPECT() *MockSetWithTTLableStorageMockRecor
 }
 
 // Get mocks base method
-func (m *MockSetWithTTLableStorage) Get(key, value interface{}) error {
+func (m *MockSetWithTTLableStorage) Get(ctx context.Context, key, value interface{}) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Get", key, value)
+	ret := m.ctrl.Call(m, "Get", ctx, key, value)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Get indicates an expected call of Get
-func (mr *MockSetWithTTLableStorageMockRecorder) Get(key, value interface{}) *gomock.Call {
+func (mr *MockSetWithTTLableStorageMockRecorder) Get(ctx, key, value interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockSetWithTTLableStorage)(nil).Get), key, value)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockSetWithTTLableStorage)(nil).Get), ctx, key, value)
 }
 
 // Set mocks base method
-func (m *MockSetWithTTLableStorage) Set(key, value interface{}) error {
+func (m *MockSetWithTTLableStorage) Set(ctx context.Context, key, value interface{}) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Set", key, value)
+	ret := m.ctrl.Call(m, "Set", ctx, key, value)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Set indicates an expected call of Set
-func (mr *MockSetWithTTLableStorageMockRecorder) Set(key, value interface{}) *gomock.Call {
+func (mr *MockSetWithTTLableStorageMockRecorder) Set(ctx, key, value interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Set", reflect.TypeOf((*MockSetWithTTLableStorage)(nil).Set), key, value)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Set", reflect.TypeOf((*MockSetWithTTLableStorage)(nil).Set), ctx, key, value)
 }
 
 // SetWithTTL mocks base method
-func (m *MockSetWithTTLableStorage) SetWithTTL(key, value interface{}, TTL time.Duration) error {
+func (m *MockSetWithTTLableStorage) SetWithTTL(ctx context.Context, key, value interface{}, TTL time.Duration) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetWithTTL", key, value, TTL)
+	ret := m.ctrl.Call(m, "SetWithTTL", ctx, key, value, TTL)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetWithTTL indicates an expected call of SetWithTTL
-func (mr *MockSetWithTTLableStorageMockRecorder) SetWithTTL(key, value, TTL interface{}) *gomock.Call {
+func (mr *MockSetWithTTLableStorageMockRecorder) SetWithTTL(ctx, key, value, TTL interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetWithTTL", reflect.TypeOf((*MockSetWithTTLableStorage)(nil).SetWithTTL), key, value, TTL)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetWithTTL", reflect.TypeOf((*MockSetWithTTLableStorage)(nil).SetWithTTL), ctx, key, value, TTL)
 }

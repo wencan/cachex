@@ -8,6 +8,7 @@
 package rdscache
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -92,7 +93,7 @@ func RdsDefaultTTLOption(defaultTTL time.Duration) RdsOption {
 
 // NewRdsCache 创建redis缓存对象
 // 内部创建redis连接池
-func NewRdsCache(network, address string, poolCfg PoolConfig, options ...RdsOption) *RdsCache {
+func NewRdsCache(ctx context.Context, network, address string, poolCfg PoolConfig, options ...RdsOption) *RdsCache {
 	var opts []redis.DialOption
 	if poolCfg.Dial != nil {
 		opts = append(opts, redis.DialNetDial(poolCfg.Dial))
@@ -105,7 +106,7 @@ func NewRdsCache(network, address string, poolCfg PoolConfig, options ...RdsOpti
 	}
 
 	rdsPool := &redis.Pool{
-		Dial: func() (redis.Conn, error) {
+		DialContext: func(ctx context.Context) (redis.Conn, error) {
 			return redis.Dial(network, address, opts...)
 		},
 	}
@@ -153,12 +154,12 @@ func (c *RdsCache) stringKey(key interface{}) (string, error) {
 }
 
 // Set 设置缓存数据
-func (c *RdsCache) Set(key, value interface{}) error {
-	return c.SetWithTTL(key, value, c.defaultTTL)
+func (c *RdsCache) Set(ctx context.Context, key, value interface{}) error {
+	return c.SetWithTTL(ctx, key, value, c.defaultTTL)
 }
 
 // SetWithTTL 设置缓存数据，并定制TTL
-func (c *RdsCache) SetWithTTL(key, value interface{}, TTL time.Duration) error {
+func (c *RdsCache) SetWithTTL(ctx context.Context, key, value interface{}, TTL time.Duration) error {
 	skey, err := c.stringKey(key)
 	if err != nil {
 		return err
@@ -169,7 +170,10 @@ func (c *RdsCache) SetWithTTL(key, value interface{}, TTL time.Duration) error {
 		return err
 	}
 
-	conn := c.rdsPool.Get()
+	conn, err := c.rdsPool.GetContext(ctx)
+	if err != nil {
+		return err
+	}
 	defer conn.Close()
 
 	if TTL != 0 {
@@ -185,13 +189,16 @@ func (c *RdsCache) SetWithTTL(key, value interface{}, TTL time.Duration) error {
 }
 
 // Get 获取缓存数据
-func (c *RdsCache) Get(key, value interface{}) error {
+func (c *RdsCache) Get(ctx context.Context, key, value interface{}) error {
 	skey, err := c.stringKey(key)
 	if err != nil {
 		return err
 	}
 
-	conn := c.rdsPool.Get()
+	conn, err := c.rdsPool.GetContext(ctx)
+	if err != nil {
+		return err
+	}
 	data, err := redis.Bytes(conn.Do("GET", skey))
 	conn.Close()
 	if err == redis.ErrNil {
@@ -209,7 +216,7 @@ func (c *RdsCache) Get(key, value interface{}) error {
 }
 
 // Del 删除缓存数据
-func (c *RdsCache) Del(keys ...interface{}) error {
+func (c *RdsCache) Del(ctx context.Context, keys ...interface{}) error {
 	var err error
 	for idx, key := range keys {
 		keys[idx], err = c.stringKey(key)
@@ -218,7 +225,10 @@ func (c *RdsCache) Del(keys ...interface{}) error {
 		}
 	}
 
-	conn := c.rdsPool.Get()
+	conn, err := c.rdsPool.GetContext(ctx)
+	if err != nil {
+		return err
+	}
 	defer conn.Close()
 
 	_, err = conn.Do("DEL", keys...)

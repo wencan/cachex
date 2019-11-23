@@ -5,8 +5,10 @@
 package mock_cachex
 
 import (
-	gomock "github.com/golang/mock/gomock"
+	context "context"
 	reflect "reflect"
+
+	gomock "github.com/golang/mock/gomock"
 )
 
 // MockQuerier is a mock of Querier interface
@@ -33,13 +35,15 @@ func (m *MockQuerier) EXPECT() *MockQuerierMockRecorder {
 }
 
 // Query mocks base method
-func (m *MockQuerier) Query(key, value interface{}) error {
-	ret := m.ctrl.Call(m, "Query", key, value)
+func (m *MockQuerier) Query(ctx context.Context, request, value interface{}) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Query", ctx, request, value)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Query indicates an expected call of Query
-func (mr *MockQuerierMockRecorder) Query(key, value interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Query", reflect.TypeOf((*MockQuerier)(nil).Query), key, value)
+func (mr *MockQuerierMockRecorder) Query(ctx, request, value interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Query", reflect.TypeOf((*MockQuerier)(nil).Query), ctx, request, value)
 }

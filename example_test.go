@@ -1,6 +1,7 @@
 package cachex_test
 
 import (
+	"context"
 	"fmt"
 	"sync/atomic"
 	"time"
@@ -33,8 +34,10 @@ func ExampleCachex_LRUCache() {
 		Time string `db:"time"`
 	}
 
+	ctx := context.Background()
+
 	var incrementer uint64
-	query := func(key, value interface{}) error {
+	query := func(ctx context.Context, key, value interface{}) error {
 		dt := value.(*DateTime)
 
 		id := atomic.AddUint64(&incrementer, 1)
@@ -50,14 +53,14 @@ func ExampleCachex_LRUCache() {
 	cache := cachex.NewCachex(s, cachex.QueryFunc(query))
 
 	var dt DateTime
-	err := cache.Get(time.Now().Second(), &dt)
+	err := cache.Get(ctx, time.Now().Second(), &dt)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 	fmt.Println(dt.ID, dt.Date, dt.Time)
 
-	err = cache.Get(time.Now().Second(), &dt)
+	err = cache.Get(ctx, time.Now().Second(), &dt)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -76,8 +79,10 @@ func ExampleCachex_RdsCache() {
 		Time string `db:"time" msgpack:"t"`
 	}
 
+	ctx := context.Background()
+
 	var incrementer uint64
-	query := func(key, value interface{}) error {
+	query := func(ctx context.Context, key, value interface{}) error {
 		dt := value.(*DateTime)
 
 		id := atomic.AddUint64(&incrementer, 1)
@@ -89,18 +94,18 @@ func ExampleCachex_RdsCache() {
 		return nil
 	}
 
-	s := rdscache.NewRdsCache("tcp", rds.Addr(), rdscache.PoolConfig{DB: 1}, rdscache.RdsKeyPrefixOption("cache"))
+	s := rdscache.NewRdsCache(ctx, "tcp", rds.Addr(), rdscache.PoolConfig{DB: 1}, rdscache.RdsKeyPrefixOption("cache"))
 	cache := cachex.NewCachex(s, cachex.QueryFunc(query))
 
 	var dt DateTime
-	err := cache.Get(time.Now().Second(), &dt)
+	err := cache.Get(ctx, time.Now().Second(), &dt)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 	fmt.Println(dt.ID, dt.Date, dt.Time)
 
-	err = cache.Get(time.Now().Second(), &dt)
+	err = cache.Get(ctx, time.Now().Second(), &dt)
 	if err != nil {
 		fmt.Println(err)
 		return

@@ -4,6 +4,7 @@ package cachex
 // 2017-08-31
 
 import (
+	"context"
 	"errors"
 	"reflect"
 	"sync"
@@ -81,7 +82,7 @@ func GetTTLOption(ttl time.Duration) GetOption {
 }
 
 // Get 获取
-func (c *Cachex) Get(key, value interface{}, opts ...GetOption) error {
+func (c *Cachex) Get(ctx context.Context, key, value interface{}, opts ...GetOption) error {
 	if v := reflect.ValueOf(value); v.Kind() != reflect.Ptr || v.IsNil() {
 		panic("value not is non-nil pointer")
 	}
@@ -111,7 +112,7 @@ func (c *Cachex) Get(key, value interface{}, opts ...GetOption) error {
 		key = keyable.Key()
 	}
 
-	err := c.storage.Get(key, value)
+	err := c.storage.Get(ctx, key, value)
 	if err == nil {
 		return nil
 	} else if _, ok := err.(NotFound); ok {
@@ -141,7 +142,7 @@ func (c *Cachex) Get(key, value interface{}, opts ...GetOption) error {
 
 	// 双重检查
 	var staled interface{}
-	err = c.storage.Get(key, value)
+	err = c.storage.Get(ctx, key, value)
 	if err == nil {
 		if !loaded {
 			// 将结果通知等待的过程
@@ -164,7 +165,7 @@ func (c *Cachex) Get(key, value interface{}, opts ...GetOption) error {
 	}
 
 	if !loaded {
-		err := querier.Query(request, value)
+		err := querier.Query(ctx, request, value)
 		if err != nil && c.useStale && staled != nil {
 			// 当查询发生错误时，使用过期的缓存数据。该特性需要Storage支持
 			reflect.ValueOf(value).Elem().Set(reflect.ValueOf(staled))
@@ -183,9 +184,9 @@ func (c *Cachex) Get(key, value interface{}, opts ...GetOption) error {
 		// 更新到存储后端
 		elem := reflect.ValueOf(value).Elem().Interface()
 		if ttl != 0 {
-			err = c.withTTLableStorage.SetWithTTL(key, elem, ttl)
+			err = c.withTTLableStorage.SetWithTTL(ctx, key, elem, ttl)
 		} else {
-			err = c.storage.Set(key, elem)
+			err = c.storage.Set(ctx, key, elem)
 		}
 
 		sentinel.Done(elem, nil)
@@ -197,26 +198,26 @@ func (c *Cachex) Get(key, value interface{}, opts ...GetOption) error {
 }
 
 // Set 更新
-func (c *Cachex) Set(key, value interface{}) error {
+func (c *Cachex) Set(ctx context.Context, key, value interface{}) error {
 	if keyable, ok := key.(Keyable); ok {
 		key = keyable.Key()
 	}
-	return c.storage.Set(key, value)
+	return c.storage.Set(ctx, key, value)
 }
 
 // SetWithTTL 更新，并定制TTL
-func (c *Cachex) SetWithTTL(key, value interface{}, TTL time.Duration) error {
+func (c *Cachex) SetWithTTL(ctx context.Context, key, value interface{}, TTL time.Duration) error {
 	if c.withTTLableStorage != nil {
 		if keyable, ok := key.(Keyable); ok {
 			key = keyable.Key()
 		}
-		c.withTTLableStorage.SetWithTTL(key, value, TTL)
+		c.withTTLableStorage.SetWithTTL(ctx, key, value, TTL)
 	}
 	return ErrNotSupported
 }
 
 // Del 删除
-func (c *Cachex) Del(keys ...interface{}) error {
+func (c *Cachex) Del(ctx context.Context, keys ...interface{}) error {
 	if c.deletableStorage == nil {
 		return ErrNotSupported
 	}
@@ -226,7 +227,7 @@ func (c *Cachex) Del(keys ...interface{}) error {
 			keys[idx] = keyable.Key()
 		}
 	}
-	return c.deletableStorage.Del(keys...)
+	return c.deletableStorage.Del(ctx, keys...)
 }
 
 // UseStaleWhenError 设置当查询发生错误时，使用过期的缓存数据。该特性需要Storage支持（Get返回过期的缓存数据和Expired错误实现）。默认关闭。

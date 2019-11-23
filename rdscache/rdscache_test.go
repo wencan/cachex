@@ -4,6 +4,7 @@ package rdscache
 // 2017-08-31
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -20,19 +21,21 @@ func TestRdsCache(t *testing.T) {
 	}
 	defer s.Close()
 
-	cache := NewRdsCache("tcp", s.Addr(), PoolConfig{DB: 1})
+	ctx := context.Background()
+
+	cache := NewRdsCache(ctx, "tcp", s.Addr(), PoolConfig{DB: 1})
 	assert.Implements(t, (*cachex.Storage)(nil), cache)
 
-	err = cache.Set("exists", "exists")
+	err = cache.Set(ctx, "exists", "exists")
 	if assert.NoError(t, err) {
 		var value string
-		err = cache.Get("exists", &value)
+		err = cache.Get(ctx, "exists", &value)
 		assert.NoError(t, err)
 		assert.Equal(t, "exists", value)
 	}
 
 	var value string
-	err = cache.Get("non-exists", &value)
+	err = cache.Get(ctx, "non-exists", &value)
 	assert.Implements(t, (*cachex.NotFound)(nil), err)
 }
 
@@ -43,6 +46,8 @@ func TestRdsCacheWithPool(t *testing.T) {
 	}
 	defer s.Close()
 
+	ctx := context.Background()
+
 	pool := &redis.Pool{
 		Dial: func() (redis.Conn, error) {
 			return redis.Dial("tcp", s.Addr())
@@ -52,16 +57,16 @@ func TestRdsCacheWithPool(t *testing.T) {
 	cache := NewRdsCacheWithPool(pool)
 	assert.Implements(t, (*cachex.Storage)(nil), cache)
 
-	err = cache.Set("exists", "exists")
+	err = cache.Set(ctx, "exists", "exists")
 	if assert.NoError(t, err) {
 		var value string
-		err = cache.Get("exists", &value)
+		err = cache.Get(ctx, "exists", &value)
 		assert.NoError(t, err)
 		assert.Equal(t, "exists", value)
 	}
 
 	var value string
-	err = cache.Get("non-exists", &value)
+	err = cache.Get(ctx, "non-exists", &value)
 	assert.Implements(t, (*cachex.NotFound)(nil), err)
 }
 
@@ -72,13 +77,15 @@ func TestRdsCacheExpire(t *testing.T) {
 	}
 	defer s.Close()
 
-	cache := NewRdsCache("tcp", s.Addr(), PoolConfig{}, RdsDefaultTTLOption(time.Millisecond*100))
+	ctx := context.Background()
+
+	cache := NewRdsCache(ctx, "tcp", s.Addr(), PoolConfig{}, RdsDefaultTTLOption(time.Millisecond*100))
 	assert.Implements(t, (*cachex.Storage)(nil), cache)
 
-	err = cache.Set("exists", "exists")
+	err = cache.Set(ctx, "exists", "exists")
 	if assert.NoError(t, err) {
 		var value string
-		err = cache.Get("exists", &value)
+		err = cache.Get(ctx, "exists", &value)
 		assert.NoError(t, err)
 		assert.Equal(t, "exists", value)
 	}
@@ -86,7 +93,7 @@ func TestRdsCacheExpire(t *testing.T) {
 	s.FastForward(time.Millisecond * 100)
 
 	var value string
-	err = cache.Get("exists", &value)
+	err = cache.Get(ctx, "exists", &value)
 	assert.Implements(t, (*cachex.NotFound)(nil), err)
 }
 
@@ -97,21 +104,23 @@ func TestRdsCacheDel(t *testing.T) {
 	}
 	defer s.Close()
 
-	cache := NewRdsCache("tcp", s.Addr(), PoolConfig{DB: 1}, RdsDefaultTTLOption(time.Millisecond*100))
+	ctx := context.Background()
+
+	cache := NewRdsCache(ctx, "tcp", s.Addr(), PoolConfig{DB: 1}, RdsDefaultTTLOption(time.Millisecond*100))
 	assert.Implements(t, (*cachex.Storage)(nil), cache)
 
-	err = cache.Set("exists", "exists")
+	err = cache.Set(ctx, "exists", "exists")
 	if assert.NoError(t, err) {
 		var value string
-		err = cache.Get("exists", &value)
+		err = cache.Get(ctx, "exists", &value)
 		assert.NoError(t, err)
 		assert.Equal(t, "exists", value)
 	}
 
-	err = cache.Del("exists")
+	err = cache.Del(ctx, "exists")
 	if !assert.NoError(t, err) {
 		var value string
-		err = cache.Get("exists", &value)
+		err = cache.Get(ctx, "exists", &value)
 		assert.Implements(t, (*cachex.NotFound)(nil), err)
 	}
 }
@@ -123,12 +132,13 @@ func TestRdsCacheKeyPrefix(t *testing.T) {
 	}
 	defer s.Close()
 
-	// 测试无前缀
+	ctx := context.Background()
 
-	cacheWithoutPrefix := NewRdsCache("tcp", s.Addr(), PoolConfig{DB: 1})
+	// 测试无前缀
+	cacheWithoutPrefix := NewRdsCache(ctx, "tcp", s.Addr(), PoolConfig{DB: 1})
 	assert.Implements(t, (*cachex.Storage)(nil), cacheWithoutPrefix)
 
-	err = cacheWithoutPrefix.Set("exists", "exists-withoutPrefix")
+	err = cacheWithoutPrefix.Set(ctx, "exists", "exists-withoutPrefix")
 	if assert.NoError(t, err) {
 		_, err := s.DB(1).Get("exists")
 		assert.NoError(t, err)
@@ -138,10 +148,10 @@ func TestRdsCacheKeyPrefix(t *testing.T) {
 	s.DB(1).FlushDB()
 	keyPrefix := "prefix"
 
-	cacheWithPrefix := NewRdsCache("tcp", s.Addr(), PoolConfig{DB: 1}, RdsKeyPrefixOption(keyPrefix))
+	cacheWithPrefix := NewRdsCache(ctx, "tcp", s.Addr(), PoolConfig{DB: 1}, RdsKeyPrefixOption(keyPrefix))
 	assert.Implements(t, (*cachex.Storage)(nil), cacheWithPrefix)
 
-	err = cacheWithPrefix.Set("exists", "exists-withPrefix")
+	err = cacheWithPrefix.Set(ctx, "exists", "exists-withPrefix")
 	if assert.NoError(t, err) {
 		_, err := s.DB(1).Get("prefix:exists")
 		assert.NoError(t, err)
@@ -163,11 +173,13 @@ func TestRdsCacheStringerKey(t *testing.T) {
 	}
 	defer s.Close()
 
-	cache := NewRdsCache("tcp", s.Addr(), PoolConfig{DB: 1})
+	ctx := context.Background()
+
+	cache := NewRdsCache(ctx, "tcp", s.Addr(), PoolConfig{DB: 1})
 	assert.Implements(t, (*cachex.Storage)(nil), cache)
 
 	exists := testStringer{SKey: "exists"}
-	err = cache.Set(exists, "exists")
+	err = cache.Set(ctx, exists, "exists")
 	if assert.NoError(t, err) {
 		_, err := s.DB(1).Get(exists.String())
 		assert.NoError(t, err)
