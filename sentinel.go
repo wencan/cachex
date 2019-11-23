@@ -9,10 +9,15 @@
 package cachex
 
 import (
+	"errors"
 	"reflect"
 
 	"github.com/jinzhu/copier"
 )
+
+// ErrNoResult 无结果错误。
+// 消费者等待到的结果无value无err时（生产者panic或编码错误），将会得到该错误。
+var ErrNoResult = errors.New("no result")
 
 // Sentinel 哨兵。一个生产者，多个消费者等待生产者完成并提交结果
 type Sentinel struct {
@@ -68,12 +73,23 @@ func (s *Sentinel) Wait(result interface{}) error {
 		if err != nil {
 			return err
 		}
+	} else if s.err == nil {
+		return ErrNoResult
 	}
 
 	return nil
 }
 
-// Destroy 销毁
-func (s *Sentinel) Destroy() {
+// Close 直接关闭。重复关闭内部channel会导致panic。
+func (s *Sentinel) Close() {
 	close(s.flag)
+}
+
+// CloseIfUnclose 如果未关闭则关闭。
+func (s *Sentinel) CloseIfUnclose() {
+	select {
+	case <-s.flag:
+	default:
+		close(s.flag)
+	}
 }

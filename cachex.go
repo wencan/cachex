@@ -132,7 +132,11 @@ func (c *Cachex) Get(key, value interface{}, opts ...GetOption) error {
 	actual, loaded := c.sentinels.LoadOrStore(key, newSentinel)
 	sentinel := actual.(*Sentinel)
 	if loaded {
-		newSentinel.Destroy()
+		newSentinel.Close()
+	} else {
+		// 确保生产者总是能发出通知，并解锁
+		defer c.sentinels.Delete(key)
+		defer sentinel.CloseIfUnclose()
 	}
 
 	// 双重检查
@@ -142,7 +146,6 @@ func (c *Cachex) Get(key, value interface{}, opts ...GetOption) error {
 		if !loaded {
 			// 将结果通知等待的过程
 			sentinel.Done(reflect.ValueOf(value).Elem().Interface(), nil)
-			c.sentinels.Delete(key)
 		}
 		return nil
 	} else if err == nil {
@@ -156,7 +159,6 @@ func (c *Cachex) Get(key, value interface{}, opts ...GetOption) error {
 		if !loaded {
 			// 将错误通知等待的过程
 			sentinel.Done(nil, err)
-			c.sentinels.Delete(key)
 		}
 		return err
 	}
@@ -166,9 +168,7 @@ func (c *Cachex) Get(key, value interface{}, opts ...GetOption) error {
 		if err != nil && c.useStale && staled != nil {
 			// 当查询发生错误时，使用过期的缓存数据。该特性需要Storage支持
 			reflect.ValueOf(value).Elem().Set(reflect.ValueOf(staled))
-
 			sentinel.Done(staled, err)
-			c.sentinels.Delete(key)
 			return err
 		}
 
@@ -177,7 +177,6 @@ func (c *Cachex) Get(key, value interface{}, opts ...GetOption) error {
 		}
 		if err != nil {
 			sentinel.Done(nil, err)
-			c.sentinels.Delete(key)
 			return err
 		}
 
@@ -190,7 +189,6 @@ func (c *Cachex) Get(key, value interface{}, opts ...GetOption) error {
 		}
 
 		sentinel.Done(elem, nil)
-		c.sentinels.Delete(key)
 
 		return err
 	}
