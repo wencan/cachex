@@ -9,6 +9,7 @@
 package cachex
 
 import (
+	"context"
 	"errors"
 	"reflect"
 
@@ -57,12 +58,16 @@ func (s *Sentinel) Done(result interface{}, err error) error {
 }
 
 // Wait 消费者等待生产者提交结果。result必须是一个指针的接口
-func (s *Sentinel) Wait(result interface{}) error {
+func (s *Sentinel) Wait(ctx context.Context, result interface{}) error {
 	if value := reflect.ValueOf(result); value.Kind() != reflect.Ptr || value.IsNil() {
 		panic("value must is a non-nil pointer")
 	}
 
-	<-s.flag
+	select {
+	case <-s.flag:
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 
 	if s.err != nil {
 		return s.err

@@ -194,7 +194,7 @@ func (c *Cachex) Get(ctx context.Context, key, value interface{}, opts ...GetOpt
 		return err
 	}
 
-	return sentinel.Wait(value)
+	return sentinel.Wait(ctx, value)
 }
 
 // Set 更新

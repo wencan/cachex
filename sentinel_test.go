@@ -4,6 +4,7 @@ package cachex
 // 2017-09-02 10:48
 
 import (
+	"context"
 	"sync"
 	"testing"
 
@@ -23,7 +24,7 @@ func TestSentinel_Wait(t *testing.T) {
 			defer wg.Done()
 
 			var value int
-			err := sentinel.Wait(&value)
+			err := sentinel.Wait(context.TODO(), &value)
 			assert.NoError(t, err)
 			assert.Equal(t, 1, value)
 
