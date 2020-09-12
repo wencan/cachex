@@ -22,7 +22,7 @@ var (
 // Keyable 如果需要包装多个参数为key，包装结构体实现该接口，以支持获取包装结构体的缓存Key。
 type Keyable interface {
 	// Key 给Storage的缓存Key
-	Key() interface{}
+	CacheKey() interface{}
 }
 
 // Cachex 缓存处理类
@@ -109,7 +109,7 @@ func (c *Cachex) Get(ctx context.Context, key, value interface{}, opts ...GetOpt
 	// 支持包装结构体的key
 	request := key
 	if keyable, ok := key.(Keyable); ok {
-		key = keyable.Key()
+		key = keyable.CacheKey()
 	}
 
 	err := c.storage.Get(ctx, key, value)
@@ -200,7 +200,7 @@ func (c *Cachex) Get(ctx context.Context, key, value interface{}, opts ...GetOpt
 // Set 更新
 func (c *Cachex) Set(ctx context.Context, key, value interface{}) error {
 	if keyable, ok := key.(Keyable); ok {
-		key = keyable.Key()
+		key = keyable.CacheKey()
 	}
 	return c.storage.Set(ctx, key, value)
 }
@@ -209,7 +209,7 @@ func (c *Cachex) Set(ctx context.Context, key, value interface{}) error {
 func (c *Cachex) SetWithTTL(ctx context.Context, key, value interface{}, TTL time.Duration) error {
 	if c.withTTLableStorage != nil {
 		if keyable, ok := key.(Keyable); ok {
-			key = keyable.Key()
+			key = keyable.CacheKey()
 		}
 		c.withTTLableStorage.SetWithTTL(ctx, key, value, TTL)
 	}
@@ -224,7 +224,7 @@ func (c *Cachex) Del(ctx context.Context, keys ...interface{}) error {
 
 	for idx, key := range keys {
 		if keyable, ok := key.(Keyable); ok {
-			keys[idx] = keyable.Key()
+			keys[idx] = keyable.CacheKey()
 		}
 	}
 	return c.deletableStorage.Del(ctx, keys...)

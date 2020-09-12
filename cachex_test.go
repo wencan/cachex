@@ -294,7 +294,7 @@ type testRequest struct {
 	num int
 }
 
-func (request testRequest) Key() interface{} {
+func (request testRequest) CacheKey() interface{} {
 	return request.num
 }
 
